@@ -199,7 +199,7 @@ verify_bound_files() {
 }
 
 verify_mirrors() {
-    public_root=/Users/elvis/file/develop/notes/Typora/10_Projects/ai-app-docs/模型开发工作台/openspec/changes/add-real-kingbase-readonly-mcp-v1/schemas
+    public_root=/Users/elvis/file/develop/notes/Typora/10_Projects/ai-app-docs/模型开发工作台/openspec/changes/archive/2026-08-28-add-real-kingbase-readonly-mcp-v1/schemas
     for name in kingbase-readonly-preflight.request.schema.json kingbase-readonly-preflight.response.schema.json kingbase-catalog.request.schema.json kingbase-catalog.response.schema.json strict-negative-fixtures.json; do
         /usr/bin/cmp -s "$public_root/$name" "$ROOT/schemas/$name"
         status=$?

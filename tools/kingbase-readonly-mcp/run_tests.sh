@@ -199,7 +199,7 @@ verify_bound_inputs() {
 }
 
 verify_mirrors() {
-    public_root=$WORKBENCH/openspec/changes/add-real-kingbase-readonly-mcp-v1/schemas
+    public_root=$WORKBENCH/openspec/changes/archive/2026-08-28-add-real-kingbase-readonly-mcp-v1/schemas
     for name in kingbase-readonly-preflight.request.schema.json kingbase-readonly-preflight.response.schema.json kingbase-catalog.request.schema.json kingbase-catalog.response.schema.json strict-negative-fixtures.json; do
         /usr/bin/cmp -s "$public_root/$name" "$ROOT/schemas/$name"
         status=$?
@@ -402,7 +402,7 @@ run_launcher_protocol() {
 }
 
 validate_openspec() {
-    (CDPATH= cd "$WORKBENCH" 2>/dev/null && run_child /usr/bin/env -i PATH="$SYSTEM_PATH" HOME="$HOME_VALUE" /opt/homebrew/bin/openspec validate add-real-kingbase-readonly-mcp-v1 --strict >/dev/null 2>/dev/null)
+    (CDPATH= cd "$WORKBENCH" 2>/dev/null && run_child /usr/bin/env -i PATH="$SYSTEM_PATH" HOME="$HOME_VALUE" /opt/homebrew/bin/openspec validate real-kingbase-readonly-mcp --type spec --strict >/dev/null 2>/dev/null)
     status=$?
     if [ "$status" -ne 0 ]; then return "$status"; fi
     return 0

@@ -598,6 +598,20 @@ class LauncherContractTest(unittest.TestCase):
         ):
             self.assertIn(marker, runner, marker)
 
+    def test_runtime_mirror_gate_uses_archived_openspec_source(self):
+        archived = "openspec/changes/archive/2026-08-28-add-real-kingbase-readonly-mcp-v1/schemas"
+        active = "openspec/changes/add-real-kingbase-readonly-mcp-v1/schemas"
+        for name in ("run_kingbase_readonly_mcp.sh", "run_tests.sh"):
+            source = (ROOT / name).read_text(encoding="utf-8")
+            self.assertIn(archived, source)
+            self.assertNotIn(active, source)
+        runner = (ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            "openspec validate real-kingbase-readonly-mcp --type spec --strict",
+            runner,
+        )
+        self.assertNotIn("openspec validate add-real-kingbase-readonly-mcp-v1", runner)
+
 
 if __name__ == "__main__":
     unittest.main()
