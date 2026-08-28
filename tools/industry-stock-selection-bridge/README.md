@@ -7,10 +7,11 @@ Kingbase catalog chain. It exposes exactly two read-only tools:
 - `business_query`
 
 The public process privately owns `kingbase-readonly-private`; that child is
-never registered with Codex and never exposes generic SQL. The bridge supports
-only catalog `CHILDREN` and product/industry `PARENT_PATH`. Company, ranking,
-finance, upstream/downstream and other uncovered relations fail closed without
-starting a database call.
+created only when a valid business tool call first needs it, never during the
+Codex `initialize` / `tools/list` handshake. It is never registered with Codex
+and never exposes generic SQL. The bridge supports only catalog `CHILDREN` and
+product/industry `PARENT_PATH`. Company, ranking, finance, upstream/downstream
+and other uncovered relations fail closed without starting a database call.
 
 Run the offline suite:
 

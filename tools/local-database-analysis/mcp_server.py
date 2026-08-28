@@ -618,7 +618,9 @@ def dispatch(request: object) -> dict | None:
             return _invalid_params(is_notification, request_id)
         return None if is_notification else _response(request_id, {})
     if method == "tools/list":
-        params = request.get("params", {})
+        params = request.get("params")
+        if params is None:
+            params = {}
         if not isinstance(params, dict):
             return _invalid_params(is_notification, request_id)
         if set(params) - {"cursor"} or (

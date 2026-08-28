@@ -38,7 +38,7 @@ class PublicLauncherTest(unittest.TestCase):
                     "clientInfo": {},
                 },
             },
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": None},
         ]
         input_bytes = b"".join(
             json.dumps(item, separators=(",", ":")).encode() + b"\n"

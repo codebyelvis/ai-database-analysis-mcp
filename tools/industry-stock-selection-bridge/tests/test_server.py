@@ -65,6 +65,17 @@ class ShortWrite(io.BytesIO):
 
 
 class PublicServerTest(unittest.TestCase):
+    def test_tools_list_accepts_codex_optional_null_params(self):
+        status, lines, bridge = run_protocol(
+            [{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": None}]
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual([tool["name"] for tool in lines[0]["result"]["tools"]], [
+            "entity_resolve",
+            "business_query",
+        ])
+        self.assertEqual(bridge.calls, [])
+
     def test_exact_initialize_list_and_two_tool_calls(self):
         status, lines, bridge = run_protocol(
             [

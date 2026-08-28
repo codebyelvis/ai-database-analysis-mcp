@@ -81,6 +81,16 @@ class McpServerTest(unittest.TestCase):
             },
         )
 
+    def test_tools_list_accepts_codex_optional_null_params(self):
+        completed = self.process_request(
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": None}
+        )
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(completed.stderr, "")
+        response = json.loads(completed.stdout)
+        self.assertNotIn("error", response)
+        self.assertEqual(len(response["result"]["tools"]), 6)
+
     def test_tool_schemas_are_closed_objects(self):
         response = self.request("tools/list", {})
 

@@ -133,8 +133,16 @@ class IndustrySelectionBridge:
         private_client: Any | None = None,
         private_factory: Callable[[], Any] = PrivateMcpClient,
     ) -> None:
-        self._private = private_client if private_client is not None else private_factory()
+        self._private = private_client
+        self._private_factory = private_factory
         self._closed = False
+
+    def _get_private(self) -> Any:
+        if self._closed:
+            raise PrivateMcpUnavailable()
+        if self._private is None:
+            self._private = self._private_factory()
+        return self._private
 
     def _entity_failure(
         self,
@@ -285,7 +293,7 @@ class IndustrySelectionBridge:
         for mention in mentions:
             query_text = mention.get("searchText") or mention["text"]
             try:
-                response = self._private.call_catalog(
+                response = self._get_private().call_catalog(
                     {
                         "operation": "RESOLVE_CATALOG",
                         "text": query_text,
@@ -492,7 +500,7 @@ class IndustrySelectionBridge:
                         reason="STEP_EXECUTION_ERROR",
                         message="catalog relation is unavailable",
                     )
-            response = self._private.call_catalog(arguments)
+            response = self._get_private().call_catalog(arguments)
             responses.append(_private_success(response, operation))
 
         data_as_of_values = {item[1] for item in responses}

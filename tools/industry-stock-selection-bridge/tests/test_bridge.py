@@ -74,6 +74,22 @@ def entity(entity_id, name):
 
 
 class EntityResolveTest(unittest.TestCase):
+    def test_private_client_is_created_lazily_on_first_valid_catalog_call(self):
+        private = FakePrivate([FIXTURES["resolveProduct"]])
+        created = []
+
+        def factory():
+            created.append(True)
+            return private
+
+        bridge = IndustrySelectionBridge(private_factory=factory)
+        self.assertEqual(created, [])
+        result = bridge.entity_resolve(unresolved_request())
+        self.assertTrue(result["success"])
+        self.assertEqual(created, [True])
+        bridge.close()
+        self.assertTrue(private.closed)
+
     def test_catalog_mention_maps_once_and_compiles_canonical_plan(self):
         private = FakePrivate([FIXTURES["resolveProduct"]])
         bridge = IndustrySelectionBridge(private_client=private)

@@ -221,6 +221,8 @@ def _dispatch(request: dict[str, Any], bridge: Any) -> dict[str, Any] | None:
             raise _ProtocolError("invalid_params")
         return _success_response(request_id, {})
     if method == "tools/list":
+        if params is None:
+            params = {}
         if params != {}:
             raise _ProtocolError("invalid_params")
         return _success_response(request_id, {"tools": tool_definitions()})
