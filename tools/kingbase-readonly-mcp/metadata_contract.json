@@ -1,0 +1,311 @@
+{
+  "profile": "ai_app_industry_test_ro",
+  "schema": "ai_dw",
+  "capturedAt": "2026-08-24T05:55:11Z",
+  "tables": [
+    {
+      "columns": [
+        {
+          "characterMaximumLength": 9,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "PD_ID",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 1,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 50,
+          "dataType": "varchar",
+          "isNullable": "YES",
+          "name": "YC11_PD_CD",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 2,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 500,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "PD_NAME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 3,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 1,
+          "dataType": "bpchar",
+          "isNullable": "NO",
+          "name": "IS_EFF",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 4,
+          "udtName": "bpchar"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "USER-DEFINED",
+          "isNullable": "YES",
+          "name": "CRT_TIME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 5,
+          "udtName": "timestamp"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "USER-DEFINED",
+          "isNullable": "YES",
+          "name": "UPDT_TIME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 6,
+          "udtName": "timestamp"
+        },
+        {
+          "characterMaximumLength": 1000,
+          "dataType": "varchar",
+          "isNullable": "YES",
+          "name": "MEMO",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 7,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "integer",
+          "isNullable": "YES",
+          "name": "BUS_DATE",
+          "numericPrecision": 32,
+          "numericScale": 0,
+          "ordinalPosition": 12,
+          "udtName": "int4"
+        }
+      ],
+      "inherits": false,
+      "isPartition": false,
+      "keyColumns": [
+        "PD_ID"
+      ],
+      "relkind": "r",
+      "table": "T_EDW_VAR_PD_INFO_Q"
+    },
+    {
+      "columns": [
+        {
+          "characterMaximumLength": 9,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "PD_ID",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 1,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 7,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "TERT_IDTY_ID",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 2,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 1,
+          "dataType": "bpchar",
+          "isNullable": "NO",
+          "name": "IS_EFF",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 3,
+          "udtName": "bpchar"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "USER-DEFINED",
+          "isNullable": "YES",
+          "name": "CRT_TIME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 4,
+          "udtName": "timestamp"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "USER-DEFINED",
+          "isNullable": "YES",
+          "name": "UPDT_TIME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 5,
+          "udtName": "timestamp"
+        },
+        {
+          "characterMaximumLength": 1000,
+          "dataType": "varchar",
+          "isNullable": "YES",
+          "name": "MEMO",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 6,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "integer",
+          "isNullable": "YES",
+          "name": "BUS_DATE",
+          "numericPrecision": 32,
+          "numericScale": 0,
+          "ordinalPosition": 11,
+          "udtName": "int4"
+        }
+      ],
+      "inherits": false,
+      "isPartition": false,
+      "keyColumns": [
+        "PD_ID",
+        "TERT_IDTY_ID"
+      ],
+      "relkind": "r",
+      "table": "T_EDW_VAR_PD_IDTY_RELA_Q"
+    },
+    {
+      "columns": [
+        {
+          "characterMaximumLength": 20,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "IDTY_CLAS",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 1,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 7,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "PRI_IDTY_ID",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 2,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 300,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "PRI_IDTY_NAME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 3,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 7,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "SCD_IDTY_ID",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 4,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 300,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "SCD_IDTY_NAME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 5,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 7,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "TERT_IDTY_ID",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 6,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 300,
+          "dataType": "varchar",
+          "isNullable": "NO",
+          "name": "TERT_IDTY_NAME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 7,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": 1,
+          "dataType": "bpchar",
+          "isNullable": "NO",
+          "name": "IS_EFF",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 8,
+          "udtName": "bpchar"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "USER-DEFINED",
+          "isNullable": "YES",
+          "name": "CRT_TIME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 9,
+          "udtName": "timestamp"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "USER-DEFINED",
+          "isNullable": "YES",
+          "name": "UPDT_TIME",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 10,
+          "udtName": "timestamp"
+        },
+        {
+          "characterMaximumLength": 1000,
+          "dataType": "varchar",
+          "isNullable": "YES",
+          "name": "MEMO",
+          "numericPrecision": null,
+          "numericScale": null,
+          "ordinalPosition": 11,
+          "udtName": "varchar"
+        },
+        {
+          "characterMaximumLength": null,
+          "dataType": "integer",
+          "isNullable": "YES",
+          "name": "BUS_DATE",
+          "numericPrecision": 32,
+          "numericScale": 0,
+          "ordinalPosition": 16,
+          "udtName": "int4"
+        }
+      ],
+      "inherits": false,
+      "isPartition": false,
+      "keyColumns": [
+        "TERT_IDTY_ID"
+      ],
+      "relkind": "r",
+      "table": "T_EDW_VAR_HCZQ_IDTY_CLAS_Q"
+    }
+  ]
+}

@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "entity-resolve.request.schema.json",
+  "title": "产业选股 Skill entity_resolve 请求契约",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operation", "mentions", "queryPlan"],
+  "properties": {
+    "operation": { "const": "entity_resolve" },
+    "mentions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/mention" }
+    },
+    "queryPlan": { "$ref": "#/$defs/queryPlan" }
+  },
+  "$defs": {
+    "localId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+    },
+    "mention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mentionId", "text", "expectedEntityTypes"],
+      "properties": {
+        "mentionId": { "$ref": "#/$defs/localId" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "searchText": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "expectedEntityTypes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["CATALOG_NODE", "COMPANY"] }
+        }
+      }
+    },
+    "mentionInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceType", "mentionId"],
+      "properties": {
+        "sourceType": { "const": "MENTION" },
+        "mentionId": { "$ref": "#/$defs/localId" }
+      }
+    },
+    "nodeSetInput": {
+      "$ref": "business-query.request.schema.json#/$defs/nodeSetInput"
+    },
+    "companySetInput": {
+      "$ref": "business-query.request.schema.json#/$defs/companySetInput"
+    },
+    "singleCompanyInput": {
+      "$ref": "business-query.request.schema.json#/$defs/singleCompanyInput"
+    },
+    "companyMentionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "sourceType", "mentionId"],
+      "properties": {
+        "role": { "const": "COMPANY" },
+        "sourceType": { "const": "MENTION" },
+        "mentionId": { "$ref": "#/$defs/localId" }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepId", "relation", "input", "outputType", "presentation"],
+      "properties": {
+        "stepId": { "$ref": "#/$defs/localId" },
+        "relation": {
+          "enum": [
+            "CHILDREN",
+            "PARENT_PATH",
+            "UPSTREAM",
+            "COMPONENTS",
+            "DOWNSTREAM",
+            "APPLICATIONS",
+            "RELATED_COMPANIES",
+            "COMPANY_PRODUCTS",
+            "RANK_COMPANIES",
+            "GET_NODE_METRICS",
+            "EVIDENCE",
+            "COMPANY_PROFILE",
+            "COMPANY_INDUSTRY_POSITIONS"
+          ]
+        },
+        "input": { "type": "object" },
+        "references": { "type": "array" },
+        "options": { "type": "object" },
+        "outputType": {
+          "enum": [
+            "NODE_SET",
+            "PATH_RESULT",
+            "COMPANY_SET",
+            "RANKED_COMPANY_SET",
+            "NODE_METRIC_SET",
+            "EVIDENCE_RESULT",
+            "COMPANY_PROFILE",
+            "POSITION_SET"
+          ]
+        },
+        "presentation": {
+          "$ref": "business-query.request.schema.json#/$defs/presentation"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "relation": { "const": "CHILDREN" } }, "required": ["relation"] },
+          "then": {
+            "properties": { "input": { "$ref": "#/$defs/mentionInput" }, "outputType": { "const": "NODE_SET" } },
+            "not": { "anyOf": [{ "required": ["references"] }, { "required": ["options"] }] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "PARENT_PATH" } }, "required": ["relation"] },
+          "then": {
+            "properties": { "input": { "$ref": "#/$defs/mentionInput" }, "outputType": { "const": "PATH_RESULT" } },
+            "not": { "anyOf": [{ "required": ["references"] }, { "required": ["options"] }] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "enum": ["UPSTREAM", "COMPONENTS", "DOWNSTREAM", "APPLICATIONS"] } }, "required": ["relation"] },
+          "then": {
+            "properties": { "input": { "$ref": "#/$defs/mentionInput" }, "outputType": { "const": "NODE_SET" } },
+            "not": { "anyOf": [{ "required": ["references"] }, { "required": ["options"] }] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "RELATED_COMPANIES" } }, "required": ["relation"] },
+          "then": {
+            "properties": {
+              "input": { "oneOf": [{ "$ref": "#/$defs/mentionInput" }, { "$ref": "#/$defs/nodeSetInput" }] },
+              "options": { "$ref": "business-query.request.schema.json#/$defs/relatedCompaniesOptions" },
+              "outputType": { "const": "COMPANY_SET" }
+            },
+            "not": { "required": ["references"] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "COMPANY_PRODUCTS" } }, "required": ["relation"] },
+          "then": {
+            "properties": {
+              "input": { "oneOf": [{ "$ref": "#/$defs/mentionInput" }, { "$ref": "#/$defs/singleCompanyInput" }] },
+              "outputType": { "const": "NODE_SET" }
+            },
+            "not": { "anyOf": [{ "required": ["references"] }, { "required": ["options"] }] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "RANK_COMPANIES" } }, "required": ["relation"] },
+          "then": {
+            "required": ["options"],
+            "properties": {
+              "input": { "$ref": "#/$defs/companySetInput" },
+              "options": { "$ref": "business-query.request.schema.json#/$defs/rankCompaniesOptions" },
+              "outputType": { "const": "RANKED_COMPANY_SET" }
+            },
+            "not": { "required": ["references"] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "GET_NODE_METRICS" } }, "required": ["relation"] },
+          "then": {
+            "required": ["options"],
+            "properties": {
+              "input": { "oneOf": [{ "$ref": "#/$defs/mentionInput" }, { "$ref": "#/$defs/nodeSetInput" }] },
+              "options": { "$ref": "business-query.request.schema.json#/$defs/nodeMetricsOptions" },
+              "outputType": { "const": "NODE_METRIC_SET" }
+            },
+            "not": { "required": ["references"] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "EVIDENCE" } }, "required": ["relation"] },
+          "then": {
+            "required": ["references"],
+            "properties": {
+              "input": { "$ref": "#/$defs/mentionInput" },
+              "references": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": { "$ref": "#/$defs/companyMentionReference" }
+              },
+              "outputType": { "const": "EVIDENCE_RESULT" }
+            },
+            "not": { "required": ["options"] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "COMPANY_PROFILE" } }, "required": ["relation"] },
+          "then": {
+            "properties": {
+              "input": { "oneOf": [{ "$ref": "#/$defs/mentionInput" }, { "$ref": "#/$defs/singleCompanyInput" }] },
+              "options": { "$ref": "business-query.request.schema.json#/$defs/companyProfileOptions" },
+              "outputType": { "const": "COMPANY_PROFILE" }
+            },
+            "not": { "required": ["references"] }
+          }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "COMPANY_INDUSTRY_POSITIONS" } }, "required": ["relation"] },
+          "then": {
+            "properties": {
+              "input": { "oneOf": [{ "$ref": "#/$defs/mentionInput" }, { "$ref": "#/$defs/singleCompanyInput" }] },
+              "options": { "$ref": "business-query.request.schema.json#/$defs/companyPositionsOptions" },
+              "outputType": { "const": "POSITION_SET" }
+            },
+            "not": { "required": ["references"] }
+          }
+        }
+      ]
+    },
+    "queryPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planId", "steps"],
+      "properties": {
+        "planId": { "$ref": "#/$defs/localId" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/step" }
+        }
+      }
+    }
+  }
+}

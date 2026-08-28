@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kingbase-readonly-preflight.request.schema.json",
+  "title": "测试环境 Kingbase 只读 MCP preflight 请求",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}

@@ -1,0 +1,165 @@
+{
+  "resolveProduct": {
+    "success": true,
+    "operation": "RESOLVE_CATALOG",
+    "dataStatus": "AVAILABLE",
+    "totalCount": 1,
+    "returnedCount": 1,
+    "truncated": false,
+    "dataAsOf": "2026-08-11",
+    "queryId": "0123456789abcdef",
+    "readBoundary": {
+      "transactionReadOnly": true,
+      "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+      "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+    },
+    "data": {
+      "rows": [
+        {
+          "entityId": "PRODUCT:P1",
+          "entityKind": "PRODUCT",
+          "canonicalName": "产品一",
+          "matchedField": "PD_NAME",
+          "matchKind": "EXACT"
+        }
+      ]
+    }
+  },
+  "resolveAmbiguous": {
+    "success": true,
+    "operation": "RESOLVE_CATALOG",
+    "dataStatus": "AVAILABLE",
+    "totalCount": 2,
+    "returnedCount": 2,
+    "truncated": false,
+    "dataAsOf": "2026-08-11",
+    "queryId": "0123456789abcdef",
+    "readBoundary": {
+      "transactionReadOnly": true,
+      "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+      "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+    },
+    "data": {
+      "rows": [
+        {
+          "entityId": "PRODUCT:P1",
+          "entityKind": "PRODUCT",
+          "canonicalName": "同名对象",
+          "matchedField": "PD_NAME",
+          "matchKind": "EXACT"
+        },
+        {
+          "entityId": "INDUSTRY_L2:L2",
+          "entityKind": "INDUSTRY_L2",
+          "canonicalName": "同名对象",
+          "matchedField": "SCD_IDTY_NAME",
+          "matchKind": "EXACT"
+        }
+      ]
+    }
+  },
+  "children": {
+    "success": true,
+    "operation": "INDUSTRY_CHILDREN",
+    "dataStatus": "AVAILABLE",
+    "totalCount": 1,
+    "returnedCount": 1,
+    "truncated": false,
+    "dataAsOf": "2026-08-11",
+    "queryId": "0123456789abcdef",
+    "readBoundary": {
+      "transactionReadOnly": true,
+      "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+      "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+    },
+    "data": {
+      "parent": {
+        "entityId": "INDUSTRY_L1:L1",
+        "level": "L1",
+        "canonicalName": "一级产业"
+      },
+      "rows": [
+        {
+          "entityId": "INDUSTRY_L2:L2",
+          "level": "L2",
+          "canonicalName": "二级产业",
+          "sourceId": "L2"
+        }
+      ]
+    }
+  },
+  "productIndustries": {
+    "success": true,
+    "operation": "PRODUCT_INDUSTRIES",
+    "dataStatus": "AVAILABLE",
+    "totalCount": 1,
+    "returnedCount": 1,
+    "truncated": false,
+    "dataAsOf": "2026-08-11",
+    "queryId": "0123456789abcdef",
+    "readBoundary": {
+      "transactionReadOnly": true,
+      "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+      "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+    },
+    "data": {
+      "product": {
+        "entityId": "PRODUCT:P1",
+        "pdId": "P1",
+        "yc11PdCd": "C1",
+        "pdName": "产品一",
+        "isEff": "1"
+      },
+      "rows": [
+        {
+          "nodes": [
+            {"entityId": "INDUSTRY_ROOT:Um9vdA", "level": "ROOT", "canonicalName": "根产业"},
+            {"entityId": "INDUSTRY_L1:L1", "level": "L1", "canonicalName": "一级产业", "sourceId": "L1"},
+            {"entityId": "INDUSTRY_L2:L2", "level": "L2", "canonicalName": "二级产业", "sourceId": "L2"},
+            {"entityId": "INDUSTRY_L3:L3", "level": "L3", "canonicalName": "三级产业", "sourceId": "L3"}
+          ]
+        }
+      ]
+    }
+  },
+  "parentPath": {
+    "success": true,
+    "operation": "INDUSTRY_PARENT_PATH",
+    "dataStatus": "AVAILABLE",
+    "totalCount": 1,
+    "returnedCount": 1,
+    "truncated": false,
+    "dataAsOf": "2026-08-11",
+    "queryId": "0123456789abcdef",
+    "readBoundary": {
+      "transactionReadOnly": true,
+      "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+      "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+    },
+    "data": {
+      "node": {"entityId": "INDUSTRY_L2:L2", "level": "L2", "canonicalName": "二级产业"},
+      "rows": [
+        {
+          "nodes": [
+            {"entityId": "INDUSTRY_ROOT:Um9vdA", "level": "ROOT", "canonicalName": "根产业"},
+            {"entityId": "INDUSTRY_L1:L1", "level": "L1", "canonicalName": "一级产业", "sourceId": "L1"},
+            {"entityId": "INDUSTRY_L2:L2", "level": "L2", "canonicalName": "二级产业", "sourceId": "L2"}
+          ]
+        }
+      ]
+    }
+  },
+  "error": {
+    "success": false,
+    "operation": "RESOLVE_CATALOG",
+    "dataStatus": "FAILED",
+    "totalCount": 0,
+    "returnedCount": 0,
+    "truncated": false,
+    "dataAsOf": null,
+    "queryId": "0123456789abcdef",
+    "errorCode": "QUERY_FAILED",
+    "message": "query failed",
+    "data": null
+  }
+}

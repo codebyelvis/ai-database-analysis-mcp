@@ -1,0 +1,1539 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "strict-negative-fixtures.json",
+  "title": "真实 Kingbase MCP 严格 Schema/语义负例清单",
+  "description": "离线 harness 必须在不启动 psql 的前提下逐项验证：19 项由 Ajv 2020 strict 拒绝，18 项先通过 request/response Schema 和所有非目标 digest/context 前置检查，再由同一会话 queryContext 驱动的语义闭集 validator 仅因目标规则拒绝。",
+  "type": "array",
+  "minItems": 37,
+  "maxItems": 37,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "caseId",
+      "target",
+      "payload",
+      "expectedErrorCode",
+      "mustNotStartPsql"
+    ],
+    "properties": {
+      "caseId": {
+        "type": "string",
+        "pattern": "^[a-z0-9_]+$",
+        "maxLength": 64
+      },
+      "target": {
+        "enum": [
+          "catalogRequest",
+          "catalogResponse",
+          "preflightResponse"
+        ]
+      },
+      "payload": {
+        "type": "object"
+      },
+      "request": {
+        "type": "object"
+      },
+      "queryContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestCanonicalSha256",
+          "operation",
+          "dataAsOf",
+          "directEdges"
+        ],
+        "properties": {
+          "requestCanonicalSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "operation": {
+            "enum": [
+              "RESOLVE_CATALOG",
+              "SEARCH_PRODUCTS",
+              "PRODUCT_INDUSTRIES",
+              "INDUSTRY_CHILDREN",
+              "INDUSTRY_PARENT_PATH"
+            ]
+          },
+          "dataAsOf": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "parentEntityId": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "productEntityId": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "canonicalProductId": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "directEdges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "parentEntityId",
+                "parentLevel",
+                "childEntityId",
+                "childLevel"
+              ],
+              "properties": {
+                "parentEntityId": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "parentLevel": {
+                  "enum": [
+                    "ROOT",
+                    "L1",
+                    "L2"
+                  ]
+                },
+                "childEntityId": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "childLevel": {
+                  "enum": [
+                    "L1",
+                    "L2",
+                    "L3"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "semanticRule": {
+        "enum": [
+          "COUNT_RETURNED_NOT_GT_TOTAL",
+          "TRUNCATED_EQ_TOTAL_GT_RETURNED",
+          "CHILD_LEVEL",
+          "PATH_LEVEL_ORDER",
+          "PATH_TARGET_BINDING",
+          "PATH_DIRECT_PARENT",
+          "PRODUCT_ID_BINDING",
+          "RESOLVE_MATCH_FIELD",
+          "REQUEST_LIMIT_BINDING",
+          "RESPONSE_OPERATION_BINDING",
+          "CONTEXT_OPERATION_BINDING",
+          "CONTEXT_REQUEST_DIGEST",
+          "CONTEXT_DATA_AS_OF",
+          "CONTEXT_EDGE_UNIQUE",
+          "CONTEXT_REQUIRED_BINDING",
+          "PRODUCT_REQUEST_BINDING",
+          "CHILD_PARENT_BINDING",
+          "CHILD_DIRECT_PARENT",
+          "PRODUCT_PATH_DIRECT_PARENT"
+        ]
+      },
+      "expectedErrorCode": {
+        "enum": [
+          "POLICY_DENIED",
+          "DATA_CONTRACT_MISMATCH"
+        ]
+      },
+      "mustNotStartPsql": {
+        "const": true
+      }
+    }
+  },
+  "examples": [
+    {
+      "caseId": "unknown_operation",
+      "target": "catalogRequest",
+      "payload": {
+        "operation": "DROP_ALL",
+        "sql": "SELECT 1"
+      },
+      "expectedErrorCode": "POLICY_DENIED",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "missing_error_fields",
+      "target": "catalogResponse",
+      "payload": {
+        "success": false,
+        "operation": "UNKNOWN_OPERATION",
+        "dataStatus": "REJECTED",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": null,
+        "queryId": "0123456789abcdef",
+        "data": null
+      },
+      "expectedErrorCode": "POLICY_DENIED",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "entity_prefix_level_mismatch",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_CHILDREN",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "parent": {
+            "entityId": "INDUSTRY_L1:001",
+            "level": "ROOT",
+            "canonicalName": "bad"
+          },
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "returned_count_mismatch",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "duplicate_preflight_table",
+      "target": "preflightResponse",
+      "payload": {
+        "success": true,
+        "operation": "kingbase_readonly_preflight",
+        "profile": "ai_app_industry_test_ro",
+        "schema": "ai_dw",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "objects": [
+          {
+            "table": "T_EDW_VAR_PD_INFO_Q",
+            "rowCount": 1,
+            "uniqueKeyCount": 1,
+            "columns": [
+              "PD_ID"
+            ]
+          },
+          {
+            "table": "T_EDW_VAR_PD_INFO_Q",
+            "rowCount": 1,
+            "uniqueKeyCount": 1,
+            "columns": [
+              "PD_ID"
+            ]
+          },
+          {
+            "table": "T_EDW_VAR_HCZQ_IDTY_CLAS_Q",
+            "rowCount": 1,
+            "uniqueKeyCount": 1,
+            "columns": [
+              "TERT_IDTY_ID"
+            ]
+          }
+        ],
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef"
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "control_char_entity_id",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "node": {
+            "entityId": "INDUSTRY_L3:bad\u0000id",
+            "level": "L3",
+            "canonicalName": "bad"
+          },
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "POLICY_DENIED",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "oversized_entity_id",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "node": {
+            "entityId": "INDUSTRY_L3:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "level": "L3",
+            "canonicalName": "bad"
+          },
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "POLICY_DENIED",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "c1_control_char_text",
+      "target": "catalogRequest",
+      "payload": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "AB",
+        "matchField": "ANY",
+        "limit": 1
+      },
+      "expectedErrorCode": "POLICY_DENIED",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "error_operation_not_normalized",
+      "target": "catalogResponse",
+      "payload": {
+        "success": false,
+        "operation": "DROP_ALL",
+        "dataStatus": "REJECTED",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": null,
+        "queryId": "0123456789abcdef",
+        "data": null,
+        "errorCode": "POLICY_DENIED",
+        "message": "operation rejected by policy"
+      },
+      "expectedErrorCode": "POLICY_DENIED",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "c1_control_char_error_message",
+      "target": "catalogResponse",
+      "payload": {
+        "success": false,
+        "operation": "UNKNOWN_OPERATION",
+        "dataStatus": "REJECTED",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": null,
+        "queryId": "0123456789abcdef",
+        "data": null,
+        "errorCode": "POLICY_DENIED",
+        "message": "badmessage"
+      },
+      "expectedErrorCode": "POLICY_DENIED",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "empty_status_nonzero_total",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "EMPTY",
+        "totalCount": 10,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "available_status_empty_rows",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "returned_gt_total",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 2,
+        "truncated": true,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            {
+              "entityId": "PRODUCT:P1",
+              "pdId": "P1",
+              "yc11PdCd": "C1",
+              "pdName": "p1",
+              "isEff": "1"
+            },
+            {
+              "entityId": "PRODUCT:P2",
+              "pdId": "P2",
+              "yc11PdCd": "C2",
+              "pdName": "p2",
+              "isEff": "1"
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "truncated_equal_counts",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": true,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            {
+              "entityId": "PRODUCT:P1",
+              "pdId": "P1",
+              "yc11PdCd": "C1",
+              "pdName": "p1",
+              "isEff": "1"
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "not_truncated_with_remaining_rows",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 2,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            {
+              "entityId": "PRODUCT:P1",
+              "pdId": "P1",
+              "yc11PdCd": "C1",
+              "pdName": "p1",
+              "isEff": "1"
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "children_wrong_child_level",
+      "target": "catalogResponse",
+      "request": {
+        "operation": "INDUSTRY_CHILDREN",
+        "parentEntityId": "INDUSTRY_ROOT:R"
+      },
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_CHILDREN",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "parent": {
+            "entityId": "INDUSTRY_ROOT:R",
+            "level": "ROOT",
+            "canonicalName": "root"
+          },
+          "rows": [
+            {
+              "entityId": "INDUSTRY_L3:L3",
+              "level": "L3",
+              "canonicalName": "wrong"
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "product_path_wrong_order",
+      "target": "catalogResponse",
+      "request": {
+        "operation": "PRODUCT_INDUSTRIES",
+        "productEntityId": "PRODUCT:P1"
+      },
+      "payload": {
+        "success": true,
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "product": {
+            "entityId": "PRODUCT:P1",
+            "pdId": "P1",
+            "yc11PdCd": "C1",
+            "pdName": "p1",
+            "isEff": "1"
+          },
+          "rows": [
+            {
+              "nodes": [
+                {
+                  "entityId": "INDUSTRY_L3:L3",
+                  "level": "L3",
+                  "canonicalName": "l3"
+                },
+                {
+                  "entityId": "INDUSTRY_L2:L2",
+                  "level": "L2",
+                  "canonicalName": "l2"
+                },
+                {
+                  "entityId": "INDUSTRY_L1:L1",
+                  "level": "L1",
+                  "canonicalName": "l1"
+                },
+                {
+                  "entityId": "INDUSTRY_ROOT:R",
+                  "level": "ROOT",
+                  "canonicalName": "root"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "parent_path_short_for_l3",
+      "target": "catalogResponse",
+      "request": {
+        "operation": "INDUSTRY_PARENT_PATH",
+        "industryEntityId": "INDUSTRY_L3:L3"
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "63e93a3f6464e72f20f6e7a42071e7fa038dc64c6348c437742b33a9d6afe658",
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataAsOf": "2026-08-11",
+        "directEdges": [
+          {
+            "parentEntityId": "INDUSTRY_ROOT:R",
+            "parentLevel": "ROOT",
+            "childEntityId": "INDUSTRY_L1:L1",
+            "childLevel": "L1"
+          },
+          {
+            "parentEntityId": "INDUSTRY_L1:L1",
+            "parentLevel": "L1",
+            "childEntityId": "INDUSTRY_L2:L2",
+            "childLevel": "L2"
+          },
+          {
+            "parentEntityId": "INDUSTRY_L2:L2",
+            "parentLevel": "L2",
+            "childEntityId": "INDUSTRY_L3:L3",
+            "childLevel": "L3"
+          }
+        ]
+      },
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "node": {
+            "entityId": "INDUSTRY_L3:L3",
+            "level": "L3",
+            "canonicalName": "l3"
+          },
+          "rows": [
+            {
+              "nodes": [
+                {
+                  "entityId": "INDUSTRY_L3:L3",
+                  "level": "L3",
+                  "canonicalName": "l3"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "parent_path_terminal_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "PATH_TARGET_BINDING",
+      "request": {
+        "operation": "INDUSTRY_PARENT_PATH",
+        "industryEntityId": "INDUSTRY_L3:L3"
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "63e93a3f6464e72f20f6e7a42071e7fa038dc64c6348c437742b33a9d6afe658",
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataAsOf": "2026-08-11",
+        "directEdges": [
+          {
+            "parentEntityId": "INDUSTRY_ROOT:R",
+            "parentLevel": "ROOT",
+            "childEntityId": "INDUSTRY_L1:L1",
+            "childLevel": "L1"
+          },
+          {
+            "parentEntityId": "INDUSTRY_L1:L1",
+            "parentLevel": "L1",
+            "childEntityId": "INDUSTRY_L2:L2",
+            "childLevel": "L2"
+          },
+          {
+            "parentEntityId": "INDUSTRY_L2:L2",
+            "parentLevel": "L2",
+            "childEntityId": "INDUSTRY_L3:OTHER",
+            "childLevel": "L3"
+          }
+        ]
+      },
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "node": {
+            "entityId": "INDUSTRY_L3:L3",
+            "level": "L3",
+            "canonicalName": "l3"
+          },
+          "rows": [
+            {
+              "nodes": [
+                {
+                  "entityId": "INDUSTRY_ROOT:R",
+                  "level": "ROOT",
+                  "canonicalName": "root"
+                },
+                {
+                  "entityId": "INDUSTRY_L1:L1",
+                  "level": "L1",
+                  "canonicalName": "l1"
+                },
+                {
+                  "entityId": "INDUSTRY_L2:L2",
+                  "level": "L2",
+                  "canonicalName": "l2"
+                },
+                {
+                  "entityId": "INDUSTRY_L3:OTHER",
+                  "level": "L3",
+                  "canonicalName": "other"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "parent_path_non_adjacent_nodes",
+      "target": "catalogResponse",
+      "semanticRule": "PATH_DIRECT_PARENT",
+      "request": {
+        "operation": "INDUSTRY_PARENT_PATH",
+        "industryEntityId": "INDUSTRY_L3:L3"
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "63e93a3f6464e72f20f6e7a42071e7fa038dc64c6348c437742b33a9d6afe658",
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataAsOf": "2026-08-11",
+        "directEdges": [
+          {
+            "parentEntityId": "INDUSTRY_ROOT:R",
+            "parentLevel": "ROOT",
+            "childEntityId": "INDUSTRY_L1:CANON",
+            "childLevel": "L1"
+          },
+          {
+            "parentEntityId": "INDUSTRY_L1:CANON",
+            "parentLevel": "L1",
+            "childEntityId": "INDUSTRY_L2:CANON",
+            "childLevel": "L2"
+          },
+          {
+            "parentEntityId": "INDUSTRY_L2:CANON",
+            "parentLevel": "L2",
+            "childEntityId": "INDUSTRY_L3:L3",
+            "childLevel": "L3"
+          }
+        ]
+      },
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "node": {
+            "entityId": "INDUSTRY_L3:L3",
+            "level": "L3",
+            "canonicalName": "l3"
+          },
+          "rows": [
+            {
+              "nodes": [
+                {
+                  "entityId": "INDUSTRY_ROOT:R",
+                  "level": "ROOT",
+                  "canonicalName": "root"
+                },
+                {
+                  "entityId": "INDUSTRY_L1:ORPHAN",
+                  "level": "L1",
+                  "canonicalName": "orphan"
+                },
+                {
+                  "entityId": "INDUSTRY_L2:ORPHAN",
+                  "level": "L2",
+                  "canonicalName": "orphan"
+                },
+                {
+                  "entityId": "INDUSTRY_L3:L3",
+                  "level": "L3",
+                  "canonicalName": "l3"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "product_id_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "PRODUCT_ID_BINDING",
+      "request": {
+        "operation": "PRODUCT_INDUSTRIES",
+        "productEntityId": "PRODUCT:P1",
+        "limit": 50
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "9001fe26468943450ca40ec60787755f797699a5c8c47ca89cda16bec1fb7cf5",
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataAsOf": "2026-08-11",
+        "productEntityId": "PRODUCT:P1",
+        "canonicalProductId": "PRODUCT:P1",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataStatus": "EMPTY",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "product": {
+            "entityId": "PRODUCT:P1",
+            "pdId": "P2",
+            "yc11PdCd": "C2",
+            "pdName": "p2",
+            "isEff": "1"
+          },
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "resolve_matched_field_mismatch",
+      "target": "catalogResponse",
+      "payload": {
+        "success": true,
+        "operation": "RESOLVE_CATALOG",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            {
+              "entityId": "PRODUCT:P1",
+              "entityKind": "PRODUCT",
+              "canonicalName": "p1",
+              "matchedField": "IDTY_CLAS",
+              "matchKind": "EXACT"
+            }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "response_exceeds_request_limit",
+      "target": "catalogResponse",
+      "semanticRule": "REQUEST_LIMIT_BINDING",
+      "request": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "P",
+        "matchField": "ANY",
+        "limit": 1
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "b5bbf0b5db452d263fd1d243e63d6a704e5279f39fd81653190c1f59ad824740",
+        "operation": "SEARCH_PRODUCTS",
+        "dataAsOf": "2026-08-11",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 2,
+        "returnedCount": 2,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            { "entityId": "PRODUCT:P1", "pdId": "P1", "yc11PdCd": "C1", "pdName": "p1", "isEff": "1" },
+            { "entityId": "PRODUCT:P2", "pdId": "P2", "yc11PdCd": "C2", "pdName": "p2", "isEff": "1" }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "response_underfills_request_limit",
+      "target": "catalogResponse",
+      "semanticRule": "REQUEST_LIMIT_BINDING",
+      "request": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "P",
+        "matchField": "ANY",
+        "limit": 2
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "0ade759444465201124d6232b64ad4f39ab265a1d69b62a3292fa2356b98dff0",
+        "operation": "SEARCH_PRODUCTS",
+        "dataAsOf": "2026-08-11",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 3,
+        "returnedCount": 1,
+        "truncated": true,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            { "entityId": "PRODUCT:P1", "pdId": "P1", "yc11PdCd": "C1", "pdName": "p1", "isEff": "1" }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "success_operation_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "RESPONSE_OPERATION_BINDING",
+      "request": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "P",
+        "matchField": "ANY",
+        "limit": 1
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "b5bbf0b5db452d263fd1d243e63d6a704e5279f39fd81653190c1f59ad824740",
+        "operation": "SEARCH_PRODUCTS",
+        "dataAsOf": "2026-08-11",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "RESOLVE_CATALOG",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            { "entityId": "PRODUCT:P1", "entityKind": "PRODUCT", "canonicalName": "p1", "matchedField": "PD_NAME", "matchKind": "EXACT" }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "error_operation_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "RESPONSE_OPERATION_BINDING",
+      "request": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "P",
+        "matchField": "ANY",
+        "limit": 1
+      },
+      "payload": {
+        "success": false,
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataStatus": "REJECTED",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": null,
+        "queryId": "0123456789abcdef",
+        "errorCode": "POLICY_DENIED",
+        "message": "request rejected",
+        "data": null
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "context_operation_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "CONTEXT_OPERATION_BINDING",
+      "request": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "P",
+        "matchField": "ANY",
+        "limit": 1
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "b5bbf0b5db452d263fd1d243e63d6a704e5279f39fd81653190c1f59ad824740",
+        "operation": "RESOLVE_CATALOG",
+        "dataAsOf": "2026-08-11",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            { "entityId": "PRODUCT:P1", "pdId": "P1", "yc11PdCd": "C1", "pdName": "p1", "isEff": "1" }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "context_request_digest_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "CONTEXT_REQUEST_DIGEST",
+      "request": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "P",
+        "matchField": "ANY",
+        "limit": 1
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "operation": "SEARCH_PRODUCTS",
+        "dataAsOf": "2026-08-11",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            { "entityId": "PRODUCT:P1", "pdId": "P1", "yc11PdCd": "C1", "pdName": "p1", "isEff": "1" }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "context_data_as_of_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "CONTEXT_DATA_AS_OF",
+      "request": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "P",
+        "matchField": "ANY",
+        "limit": 1
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "b5bbf0b5db452d263fd1d243e63d6a704e5279f39fd81653190c1f59ad824740",
+        "operation": "SEARCH_PRODUCTS",
+        "dataAsOf": "2026-08-10",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            { "entityId": "PRODUCT:P1", "pdId": "P1", "yc11PdCd": "C1", "pdName": "p1", "isEff": "1" }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "context_duplicate_direct_edge",
+      "target": "catalogResponse",
+      "semanticRule": "CONTEXT_EDGE_UNIQUE",
+      "request": {
+        "operation": "INDUSTRY_PARENT_PATH",
+        "industryEntityId": "INDUSTRY_L3:L3"
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "63e93a3f6464e72f20f6e7a42071e7fa038dc64c6348c437742b33a9d6afe658",
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataAsOf": "2026-08-11",
+        "directEdges": [
+          { "parentEntityId": "INDUSTRY_ROOT:R", "parentLevel": "ROOT", "childEntityId": "INDUSTRY_L1:L1", "childLevel": "L1" },
+          { "parentEntityId": "INDUSTRY_L1:L1", "parentLevel": "L1", "childEntityId": "INDUSTRY_L2:L2", "childLevel": "L2" },
+          { "parentEntityId": "INDUSTRY_L2:L2", "parentLevel": "L2", "childEntityId": "INDUSTRY_L3:L3", "childLevel": "L3" },
+          { "parentEntityId": "INDUSTRY_L2:L2", "parentLevel": "L2", "childEntityId": "INDUSTRY_L3:L3", "childLevel": "L3" }
+        ]
+      },
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_PARENT_PATH",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "node": { "entityId": "INDUSTRY_L3:L3", "level": "L3", "canonicalName": "l3" },
+          "rows": [
+            { "nodes": [
+              { "entityId": "INDUSTRY_ROOT:R", "level": "ROOT", "canonicalName": "root" },
+              { "entityId": "INDUSTRY_L1:L1", "level": "L1", "canonicalName": "l1" },
+              { "entityId": "INDUSTRY_L2:L2", "level": "L2", "canonicalName": "l2" },
+              { "entityId": "INDUSTRY_L3:L3", "level": "L3", "canonicalName": "l3" }
+            ] }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "context_missing_product_binding",
+      "target": "catalogResponse",
+      "semanticRule": "CONTEXT_REQUIRED_BINDING",
+      "request": {
+        "operation": "PRODUCT_INDUSTRIES",
+        "productEntityId": "PRODUCT:P1",
+        "limit": 50
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "9001fe26468943450ca40ec60787755f797699a5c8c47ca89cda16bec1fb7cf5",
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataAsOf": "2026-08-11",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataStatus": "EMPTY",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "product": { "entityId": "PRODUCT:P1", "pdId": "P1", "yc11PdCd": "C1", "pdName": "p1", "isEff": "1" },
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "context_missing_parent_binding",
+      "target": "catalogResponse",
+      "semanticRule": "CONTEXT_REQUIRED_BINDING",
+      "request": {
+        "operation": "INDUSTRY_CHILDREN",
+        "parentEntityId": "INDUSTRY_ROOT:R",
+        "limit": 50
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "bc3448335763b775816d2ae1cda25c8df1e6801e2f425c164a2668d49c2ea192",
+        "operation": "INDUSTRY_CHILDREN",
+        "dataAsOf": "2026-08-11",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_CHILDREN",
+        "dataStatus": "EMPTY",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "parent": { "entityId": "INDUSTRY_ROOT:R", "level": "ROOT", "canonicalName": "root" },
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "search_product_id_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "PRODUCT_ID_BINDING",
+      "request": {
+        "operation": "SEARCH_PRODUCTS",
+        "searchText": "P",
+        "matchField": "ANY",
+        "limit": 1
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "b5bbf0b5db452d263fd1d243e63d6a704e5279f39fd81653190c1f59ad824740",
+        "operation": "SEARCH_PRODUCTS",
+        "dataAsOf": "2026-08-11",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "SEARCH_PRODUCTS",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "rows": [
+            { "entityId": "PRODUCT:P1", "pdId": "P2", "yc11PdCd": "C2", "pdName": "p2", "isEff": "1" }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "product_request_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "PRODUCT_REQUEST_BINDING",
+      "request": {
+        "operation": "PRODUCT_INDUSTRIES",
+        "productEntityId": "PRODUCT:P1",
+        "limit": 50
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "9001fe26468943450ca40ec60787755f797699a5c8c47ca89cda16bec1fb7cf5",
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataAsOf": "2026-08-11",
+        "productEntityId": "PRODUCT:P1",
+        "canonicalProductId": "PRODUCT:P1",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataStatus": "EMPTY",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "product": { "entityId": "PRODUCT:P2", "pdId": "P2", "yc11PdCd": "C2", "pdName": "p2", "isEff": "1" },
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "children_parent_request_mismatch",
+      "target": "catalogResponse",
+      "semanticRule": "CHILD_PARENT_BINDING",
+      "request": {
+        "operation": "INDUSTRY_CHILDREN",
+        "parentEntityId": "INDUSTRY_ROOT:R",
+        "limit": 50
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "bc3448335763b775816d2ae1cda25c8df1e6801e2f425c164a2668d49c2ea192",
+        "operation": "INDUSTRY_CHILDREN",
+        "dataAsOf": "2026-08-11",
+        "parentEntityId": "INDUSTRY_ROOT:R",
+        "directEdges": []
+      },
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_CHILDREN",
+        "dataStatus": "EMPTY",
+        "totalCount": 0,
+        "returnedCount": 0,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "parent": { "entityId": "INDUSTRY_ROOT:X", "level": "ROOT", "canonicalName": "other" },
+          "rows": []
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "children_non_direct_edge",
+      "target": "catalogResponse",
+      "semanticRule": "CHILD_DIRECT_PARENT",
+      "request": {
+        "operation": "INDUSTRY_CHILDREN",
+        "parentEntityId": "INDUSTRY_ROOT:R",
+        "limit": 50
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "bc3448335763b775816d2ae1cda25c8df1e6801e2f425c164a2668d49c2ea192",
+        "operation": "INDUSTRY_CHILDREN",
+        "dataAsOf": "2026-08-11",
+        "parentEntityId": "INDUSTRY_ROOT:R",
+        "directEdges": [
+          { "parentEntityId": "INDUSTRY_ROOT:R", "parentLevel": "ROOT", "childEntityId": "INDUSTRY_L1:CANON", "childLevel": "L1" }
+        ]
+      },
+      "payload": {
+        "success": true,
+        "operation": "INDUSTRY_CHILDREN",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "parent": { "entityId": "INDUSTRY_ROOT:R", "level": "ROOT", "canonicalName": "root" },
+          "rows": [
+            { "entityId": "INDUSTRY_L1:ORPHAN", "level": "L1", "canonicalName": "orphan" }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    },
+    {
+      "caseId": "product_path_non_direct_edge",
+      "target": "catalogResponse",
+      "semanticRule": "PRODUCT_PATH_DIRECT_PARENT",
+      "request": {
+        "operation": "PRODUCT_INDUSTRIES",
+        "productEntityId": "PRODUCT:P1",
+        "limit": 50
+      },
+      "queryContext": {
+        "requestCanonicalSha256": "9001fe26468943450ca40ec60787755f797699a5c8c47ca89cda16bec1fb7cf5",
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataAsOf": "2026-08-11",
+        "productEntityId": "PRODUCT:P1",
+        "canonicalProductId": "PRODUCT:P1",
+        "directEdges": [
+          { "parentEntityId": "INDUSTRY_ROOT:R", "parentLevel": "ROOT", "childEntityId": "INDUSTRY_L1:CANON", "childLevel": "L1" },
+          { "parentEntityId": "INDUSTRY_L1:CANON", "parentLevel": "L1", "childEntityId": "INDUSTRY_L2:CANON", "childLevel": "L2" },
+          { "parentEntityId": "INDUSTRY_L2:CANON", "parentLevel": "L2", "childEntityId": "INDUSTRY_L3:L3", "childLevel": "L3" }
+        ]
+      },
+      "payload": {
+        "success": true,
+        "operation": "PRODUCT_INDUSTRIES",
+        "dataStatus": "AVAILABLE",
+        "totalCount": 1,
+        "returnedCount": 1,
+        "truncated": false,
+        "dataAsOf": "2026-08-11",
+        "queryId": "0123456789abcdef",
+        "readBoundary": {
+          "transactionReadOnly": true,
+          "privilegeMode": "CLIENT_ENFORCED_READ_ONLY",
+          "databasePrivilegeRisk": "WRITE_CAPABLE_ACCOUNT"
+        },
+        "data": {
+          "product": { "entityId": "PRODUCT:P1", "pdId": "P1", "yc11PdCd": "C1", "pdName": "p1", "isEff": "1" },
+          "rows": [
+            { "nodes": [
+              { "entityId": "INDUSTRY_ROOT:R", "level": "ROOT", "canonicalName": "root" },
+              { "entityId": "INDUSTRY_L1:ORPHAN", "level": "L1", "canonicalName": "orphan" },
+              { "entityId": "INDUSTRY_L2:ORPHAN", "level": "L2", "canonicalName": "orphan" },
+              { "entityId": "INDUSTRY_L3:L3", "level": "L3", "canonicalName": "l3" }
+            ] }
+          ]
+        }
+      },
+      "expectedErrorCode": "DATA_CONTRACT_MISMATCH",
+      "mustNotStartPsql": true
+    }
+  ]
+}

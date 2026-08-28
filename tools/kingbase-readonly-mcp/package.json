@@ -1,0 +1,14 @@
+{
+  "name": "kingbase-readonly-mcp-contract-harness",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test:schema": "node --test tests/schema_harness.test.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}

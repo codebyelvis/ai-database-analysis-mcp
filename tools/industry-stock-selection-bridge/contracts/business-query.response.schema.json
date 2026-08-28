@@ -1,0 +1,522 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "business-query.response.schema.json",
+  "title": "产业选股 Skill business_query 响应契约",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "operation", "planId", "executionStatus", "mockData", "stepResults"],
+  "properties": {
+    "success": { "type": "boolean" },
+    "operation": { "const": "business_query" },
+    "planId": { "$ref": "business-query.request.schema.json#/$defs/localId" },
+    "executionStatus": { "enum": ["OK", "PARTIAL", "FAILED"] },
+    "mockData": { "type": "boolean" },
+    "stepResults": {
+      "type": "array",
+      "maxItems": 20,
+      "items": { "$ref": "#/$defs/stepResult" }
+    },
+    "errorCode": { "$ref": "#/$defs/planErrorCode" },
+    "message": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "retryable": { "type": "boolean" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "success": { "const": true },
+        "executionStatus": { "enum": ["OK", "PARTIAL"] },
+        "stepResults": { "minItems": 1 }
+      },
+      "not": { "anyOf": [{ "required": ["errorCode"] }, { "required": ["message"] }, { "required": ["retryable"] }] }
+    },
+    {
+      "required": ["errorCode", "message", "retryable"],
+      "properties": {
+        "success": { "const": false },
+        "executionStatus": { "const": "FAILED" },
+        "stepResults": { "maxItems": 0 }
+      }
+    }
+  ],
+  "$defs": {
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "dataStatus": {
+      "enum": ["AVAILABLE", "PARTIAL", "NOT_AVAILABLE"]
+    },
+    "evidenceItems": {
+      "type": "array",
+      "maxItems": 0,
+      "description": "v1 Mock 不提供正式证据项，固定为空数组；后续接真实证据时升级契约版本。"
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "entityType", "canonicalName"],
+      "properties": {
+        "entityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "entityType": { "$ref": "business-query.request.schema.json#/$defs/entityType" },
+        "canonicalName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "nodeLevel": { "enum": ["ROOT", "L1", "L2", "L3"] },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "dataEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "entityType", "canonicalName"],
+      "properties": {
+        "entityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "entityType": { "$ref": "business-query.request.schema.json#/$defs/entityType" },
+        "canonicalName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "nodeLevel": { "enum": ["ROOT", "L1", "L2", "L3"] },
+        "dataStatus": { "$ref": "#/$defs/dataStatus" },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metricCode", "value", "unit", "period", "statisticType", "dataAsOf", "dataStatus", "evidenceItems"],
+      "properties": {
+        "metricCode": { "enum": ["VALUE_SHARE", "GROSS_MARGIN", "PROFITABILITY"] },
+        "value": { "type": ["number", "null"] },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "period": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "statisticType": { "enum": ["COMPANY_VALUE", "INDUSTRY_AVERAGE", "INDUSTRY_MEDIAN", "MODEL_SCORE"] },
+        "dataAsOf": { "$ref": "#/$defs/date" },
+        "dataStatus": { "$ref": "#/$defs/dataStatus" },
+        "evidenceItems": { "$ref": "#/$defs/evidenceItems" },
+        "mockData": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "dataStatus": { "const": "NOT_AVAILABLE" } }, "required": ["dataStatus"] },
+          "then": { "properties": { "value": { "type": "null" } } }
+        }
+      ]
+    },
+    "metricMap": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" },
+      "additionalProperties": { "$ref": "#/$defs/metric" }
+    },
+    "vendorRankingData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceField", "dataAsOf"],
+      "properties": {
+        "sourceField": { "const": "security_sort" },
+        "dataAsOf": { "$ref": "#/$defs/date" },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "profitabilityRankingData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metricVersion", "period", "dataAsOf", "compositeValue", "unit"],
+      "properties": {
+        "metricVersion": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "period": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "dataAsOf": { "$ref": "#/$defs/date" },
+        "compositeValue": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "entityType", "canonicalName", "dataStatus"],
+      "properties": {
+        "entityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "entityType": { "const": "CATALOG_NODE" },
+        "canonicalName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "matchedNodeIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "business-query.request.schema.json#/$defs/entityId" }
+        },
+        "capacityShare": { "$ref": "#/$defs/metric" },
+        "relatedRevenue": { "$ref": "#/$defs/metric" },
+        "relatedRevenueShare": { "$ref": "#/$defs/metric" },
+        "dataStatus": { "$ref": "#/$defs/dataStatus" },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "customer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["customerName", "disclosureDate", "source", "dataStatus"],
+      "properties": {
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "disclosureDate": { "$ref": "#/$defs/date" },
+        "source": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "relatedProductCode": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "dataStatus": { "$ref": "#/$defs/dataStatus" },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "companyMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "relationRank", "relationMetric", "rankBasis", "evidenceItems", "dataStatus", "reasonCode", "dataAsOf"],
+      "properties": {
+        "nodeId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "relationRank": { "type": "integer", "minimum": 1 },
+        "relationMetric": { "const": "VENDOR_IMPORTANCE_ORDER" },
+        "rankBasis": { "type": ["string", "null"], "maxLength": 500 },
+        "evidenceItems": { "$ref": "#/$defs/evidenceItems" },
+        "dataStatus": { "$ref": "#/$defs/dataStatus" },
+        "reasonCode": { "enum": ["RANK_BASIS_NOT_PROVIDED", "EVIDENCE_NOT_PROVIDED"] },
+        "dataAsOf": { "$ref": "#/$defs/date" },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "companySetCompany": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "entityType", "canonicalName", "matches"],
+      "properties": {
+        "entityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "entityType": { "const": "COMPANY" },
+        "canonicalName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "matches": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/companyMatch" } },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "rankedCompany": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "entityType", "canonicalName", "rank", "rankingMetric", "rankingData", "evidenceItems", "dataStatus"],
+      "properties": {
+        "entityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "entityType": { "const": "COMPANY" },
+        "canonicalName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "matches": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/companyMatch" } },
+        "rank": { "type": "integer", "minimum": 1 },
+        "rankingMetric": { "const": "DEFAULT_PROFITABILITY" },
+        "rankingData": { "$ref": "#/$defs/profitabilityRankingData" },
+        "evidenceItems": { "$ref": "#/$defs/evidenceItems" },
+        "dataStatus": { "$ref": "#/$defs/dataStatus" },
+        "mockData": { "type": "boolean" }
+      }
+    },
+    "nodeSetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalCount", "returnedCount", "truncated", "nodes"],
+      "properties": {
+        "mockData": { "type": "boolean" },
+        "sourceEntityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "returnedCount": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "truncated": { "type": "boolean" },
+        "nodes": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/dataEntity" } }
+      }
+    },
+    "pathResultData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalCount", "returnedCount", "truncated", "paths"],
+      "properties": {
+        "mockData": { "type": "boolean" },
+        "sourceEntityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "returnedCount": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "truncated": { "type": "boolean" },
+        "paths": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["nodes"],
+            "properties": {
+              "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entity" } }
+            }
+          }
+        }
+      }
+    },
+    "companySetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalCount", "returnedCount", "truncated", "companies"],
+      "properties": {
+        "mockData": { "type": "boolean" },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "returnedCount": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "truncated": { "type": "boolean" },
+        "companies": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/companySetCompany" } }
+      }
+    },
+    "rankedCompanySetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalCount", "returnedCount", "truncated", "companies"],
+      "properties": {
+        "mockData": { "type": "boolean" },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "returnedCount": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "truncated": { "type": "boolean" },
+        "companies": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/rankedCompany" } }
+      }
+    },
+    "nodeMetricSetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalCount", "returnedCount", "truncated", "nodes"],
+      "properties": {
+        "mockData": { "type": "boolean" },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "returnedCount": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "truncated": { "type": "boolean" },
+        "nodes": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entityId", "entityType", "canonicalName", "rank", "metrics", "evidenceItems", "dataStatus"],
+            "properties": {
+              "entityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+              "entityType": { "const": "CATALOG_NODE" },
+              "canonicalName": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "rank": { "type": ["integer", "null"], "minimum": 1 },
+              "metrics": { "$ref": "#/$defs/metricMap" },
+              "evidenceItems": { "$ref": "#/$defs/evidenceItems" },
+              "dataStatus": { "$ref": "#/$defs/dataStatus" },
+              "mockData": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "evidenceResultData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "company", "rank", "rankingMetric", "rankBasis", "rankingData", "evidenceItems", "dataStatus", "reasonCode"],
+      "properties": {
+        "mockData": { "type": "boolean" },
+        "node": { "$ref": "#/$defs/entity" },
+        "company": { "$ref": "#/$defs/entity" },
+        "rank": { "type": ["integer", "null"], "minimum": 1 },
+        "rankingMetric": { "enum": ["VENDOR_IMPORTANCE_ORDER", "DEFAULT_PROFITABILITY"] },
+        "rankBasis": { "type": ["string", "null"], "maxLength": 500 },
+        "rankingData": {
+          "oneOf": [{ "$ref": "#/$defs/vendorRankingData" }, { "$ref": "#/$defs/profitabilityRankingData" }, { "type": "null" }]
+        },
+        "evidenceItems": { "$ref": "#/$defs/evidenceItems" },
+        "dataStatus": { "$ref": "#/$defs/dataStatus" },
+        "reasonCode": { "enum": ["RANK_BASIS_NOT_PROVIDED", "EVIDENCE_NOT_PROVIDED", "METRIC_NOT_AVAILABLE"] }
+      }
+    },
+    "companyProfileData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["company", "dataStatus"],
+      "properties": {
+        "mockData": { "type": "boolean" },
+        "company": { "$ref": "#/$defs/entity" },
+        "products": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/product" } },
+        "customers": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/customer" } },
+        "businessMetrics": { "$ref": "#/$defs/metricMap" },
+        "financialMetrics": { "$ref": "#/$defs/metricMap" },
+        "dataStatus": {
+          "oneOf": [
+            { "$ref": "#/$defs/dataStatus" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "products": { "$ref": "#/$defs/dataStatus" },
+                "customers": { "$ref": "#/$defs/dataStatus" },
+                "businessMetrics": { "$ref": "#/$defs/dataStatus" },
+                "financialMetrics": { "$ref": "#/$defs/dataStatus" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "positionSetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalCount", "returnedCount", "truncated", "positions"],
+      "properties": {
+        "mockData": { "type": "boolean" },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "returnedCount": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "truncated": { "type": "boolean" },
+        "positions": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["node", "path", "products", "businessMetrics", "rank", "rankingMetric", "rankingData", "rankBasis", "evidenceItems", "dataStatus", "reasonCode"],
+            "properties": {
+              "node": { "$ref": "#/$defs/entity" },
+              "path": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entity" } },
+              "products": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/product" } },
+              "businessMetrics": { "$ref": "#/$defs/metricMap" },
+              "rank": { "type": ["integer", "null"], "minimum": 1 },
+              "rankingMetric": {
+                "oneOf": [
+                  { "enum": ["VENDOR_IMPORTANCE_ORDER", "DEFAULT_PROFITABILITY"] },
+                  { "type": "null" }
+                ]
+              },
+              "rankingData": {
+                "oneOf": [{ "$ref": "#/$defs/vendorRankingData" }, { "$ref": "#/$defs/profitabilityRankingData" }, { "type": "null" }]
+              },
+              "rankBasis": { "type": ["string", "null"], "maxLength": 500 },
+              "evidenceItems": { "$ref": "#/$defs/evidenceItems" },
+              "dataStatus": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["products", "ranking", "evidence"],
+                "properties": {
+                  "products": { "$ref": "#/$defs/dataStatus" },
+                  "ranking": { "$ref": "#/$defs/dataStatus" },
+                  "evidence": { "$ref": "#/$defs/dataStatus" },
+                  "businessMetrics": { "$ref": "#/$defs/dataStatus" }
+                }
+              },
+              "reasonCode": { "enum": ["RANK_BASIS_NOT_PROVIDED", "EVIDENCE_NOT_PROVIDED", "METRIC_NOT_AVAILABLE"] },
+              "mockData": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "stepData": {
+      "oneOf": [
+        { "$ref": "#/$defs/nodeSetData" },
+        { "$ref": "#/$defs/pathResultData" },
+        { "$ref": "#/$defs/companySetData" },
+        { "$ref": "#/$defs/rankedCompanySetData" },
+        { "$ref": "#/$defs/nodeMetricSetData" },
+        { "$ref": "#/$defs/evidenceResultData" },
+        { "$ref": "#/$defs/companyProfileData" },
+        { "$ref": "#/$defs/positionSetData" }
+      ]
+    },
+    "stepResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planId", "stepId", "relation", "dependsOn", "executionStatus", "resultType", "dataAsOf", "presentation", "data"],
+      "properties": {
+        "planId": { "$ref": "business-query.request.schema.json#/$defs/localId" },
+        "stepId": { "$ref": "business-query.request.schema.json#/$defs/localId" },
+        "relation": {
+          "enum": ["CHILDREN", "PARENT_PATH", "UPSTREAM", "COMPONENTS", "DOWNSTREAM", "APPLICATIONS", "RELATED_COMPANIES", "COMPANY_PRODUCTS", "RANK_COMPANIES", "GET_NODE_METRICS", "EVIDENCE", "COMPANY_PROFILE", "COMPANY_INDUSTRY_POSITIONS"]
+        },
+        "dependsOn": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "$ref": "business-query.request.schema.json#/$defs/localId" }
+        },
+        "executionStatus": { "enum": ["OK", "EMPTY", "ERROR", "SKIPPED_EMPTY_DEPENDENCY", "SKIPPED_ERROR_DEPENDENCY"] },
+        "resultType": { "$ref": "business-query.request.schema.json#/$defs/resultType" },
+        "dataAsOf": { "oneOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] },
+        "presentation": { "$ref": "business-query.request.schema.json#/$defs/presentation" },
+        "mockData": { "type": "boolean" },
+        "data": { "oneOf": [{ "$ref": "#/$defs/stepData" }, { "type": "null" }] },
+        "reasonCode": { "$ref": "#/$defs/stepReasonCode" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 500 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "executionStatus": { "const": "OK" } }, "required": ["executionStatus"] },
+          "then": {
+            "properties": {
+              "dataAsOf": { "$ref": "#/$defs/date" },
+              "data": { "$ref": "#/$defs/stepData" }
+            },
+            "not": { "anyOf": [{ "required": ["reasonCode"] }, { "required": ["message"] }] }
+          },
+          "else": {
+            "required": ["reasonCode"],
+            "properties": { "data": { "type": "null" } }
+          }
+        },
+        {
+          "if": { "properties": { "resultType": { "const": "NODE_SET" } }, "required": ["resultType"] },
+          "then": { "properties": { "data": { "oneOf": [{ "$ref": "#/$defs/nodeSetData" }, { "type": "null" }] } } }
+        },
+        {
+          "if": { "properties": { "resultType": { "const": "PATH_RESULT" } }, "required": ["resultType"] },
+          "then": { "properties": { "data": { "oneOf": [{ "$ref": "#/$defs/pathResultData" }, { "type": "null" }] } } }
+        },
+        {
+          "if": { "properties": { "resultType": { "const": "COMPANY_SET" } }, "required": ["resultType"] },
+          "then": { "properties": { "data": { "oneOf": [{ "$ref": "#/$defs/companySetData" }, { "type": "null" }] } } }
+        },
+        {
+          "if": { "properties": { "resultType": { "const": "RANKED_COMPANY_SET" } }, "required": ["resultType"] },
+          "then": { "properties": { "data": { "oneOf": [{ "$ref": "#/$defs/rankedCompanySetData" }, { "type": "null" }] } } }
+        },
+        {
+          "if": { "properties": { "resultType": { "const": "NODE_METRIC_SET" } }, "required": ["resultType"] },
+          "then": { "properties": { "data": { "oneOf": [{ "$ref": "#/$defs/nodeMetricSetData" }, { "type": "null" }] } } }
+        },
+        {
+          "if": { "properties": { "resultType": { "const": "EVIDENCE_RESULT" } }, "required": ["resultType"] },
+          "then": { "properties": { "data": { "oneOf": [{ "$ref": "#/$defs/evidenceResultData" }, { "type": "null" }] } } }
+        },
+        {
+          "if": { "properties": { "resultType": { "const": "COMPANY_PROFILE" } }, "required": ["resultType"] },
+          "then": { "properties": { "data": { "oneOf": [{ "$ref": "#/$defs/companyProfileData" }, { "type": "null" }] } } }
+        },
+        {
+          "if": { "properties": { "resultType": { "const": "POSITION_SET" } }, "required": ["resultType"] },
+          "then": { "properties": { "data": { "oneOf": [{ "$ref": "#/$defs/positionSetData" }, { "type": "null" }] } } }
+        },
+        {
+          "if": { "properties": { "relation": { "enum": ["CHILDREN", "UPSTREAM", "COMPONENTS", "DOWNSTREAM", "APPLICATIONS", "COMPANY_PRODUCTS"] } }, "required": ["relation"] },
+          "then": { "properties": { "resultType": { "const": "NODE_SET" } } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "PARENT_PATH" } }, "required": ["relation"] },
+          "then": { "properties": { "resultType": { "const": "PATH_RESULT" } } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "RELATED_COMPANIES" } }, "required": ["relation"] },
+          "then": { "properties": { "resultType": { "const": "COMPANY_SET" } } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "RANK_COMPANIES" } }, "required": ["relation"] },
+          "then": { "properties": { "resultType": { "const": "RANKED_COMPANY_SET" } } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "GET_NODE_METRICS" } }, "required": ["relation"] },
+          "then": { "properties": { "resultType": { "const": "NODE_METRIC_SET" } } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "EVIDENCE" } }, "required": ["relation"] },
+          "then": { "properties": { "resultType": { "const": "EVIDENCE_RESULT" } } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "COMPANY_PROFILE" } }, "required": ["relation"] },
+          "then": { "properties": { "resultType": { "const": "COMPANY_PROFILE" } } }
+        },
+        {
+          "if": { "properties": { "relation": { "const": "COMPANY_INDUSTRY_POSITIONS" } }, "required": ["relation"] },
+          "then": { "properties": { "resultType": { "const": "POSITION_SET" } } }
+        }
+      ]
+    },
+    "stepReasonCode": {
+      "enum": ["NO_DATA", "METRIC_NOT_AVAILABLE", "STEP_EXECUTION_ERROR", "EMPTY_DEPENDENCY", "ERROR_DEPENDENCY"]
+    },
+    "planErrorCode": {
+      "enum": ["INVALID_REQUEST", "INVALID_PLAN_DEPENDENCY", "UNKNOWN_RELATION", "INPUT_TYPE_MISMATCH", "OUTPUT_TYPE_MISMATCH", "MISSING_REFERENCE", "INVALID_SELECTOR", "INVALID_OPTIONS", "PLAN_LIMIT_EXCEEDED", "INVALID_ENTITY_SOURCE", "INTERNAL_ERROR"]
+    }
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "entity-resolve.response.schema.json",
+  "title": "产业选股 Skill entity_resolve 响应契约",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "operation", "mockData", "resolutionResults", "resolvedPlan"],
+  "properties": {
+    "success": { "type": "boolean" },
+    "operation": { "const": "entity_resolve" },
+    "mockData": { "type": "boolean" },
+    "resolutionResults": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/resolutionResult" }
+    },
+    "resolvedPlan": {
+      "oneOf": [
+        { "$ref": "business-query.request.schema.json#/$defs/resolvedPlan" },
+        { "type": "null" }
+      ]
+    },
+    "errorCode": { "$ref": "#/$defs/errorCode" },
+    "message": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "retryable": { "type": "boolean" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "success": { "const": true },
+        "resolutionResults": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/resolvedResult" }
+        },
+        "resolvedPlan": { "$ref": "business-query.request.schema.json#/$defs/resolvedPlan" }
+      },
+      "not": { "anyOf": [{ "required": ["errorCode"] }, { "required": ["message"] }, { "required": ["retryable"] }] }
+    },
+    {
+      "properties": {
+        "success": { "const": true },
+        "resolutionResults": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/resolvedResult" },
+              { "$ref": "#/$defs/ambiguousResult" },
+              { "$ref": "#/$defs/notFoundResult" }
+            ]
+          },
+          "contains": {
+            "oneOf": [
+              { "$ref": "#/$defs/ambiguousResult" },
+              { "$ref": "#/$defs/notFoundResult" }
+            ]
+          },
+          "minContains": 1
+        },
+        "resolvedPlan": { "type": "null" }
+      },
+      "not": { "anyOf": [{ "required": ["errorCode"] }, { "required": ["message"] }, { "required": ["retryable"] }] }
+    },
+    {
+      "required": ["errorCode", "message", "retryable"],
+      "properties": {
+        "success": { "const": false },
+        "resolvedPlan": { "type": "null" }
+      }
+    }
+  ],
+  "$defs": {
+    "localId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "entityType", "canonicalName"],
+      "properties": {
+        "entityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "entityType": { "$ref": "business-query.request.schema.json#/$defs/entityType" },
+        "canonicalName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "matchedAlias": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "entityType", "canonicalName"],
+      "properties": {
+        "entityId": { "$ref": "business-query.request.schema.json#/$defs/entityId" },
+        "entityType": { "$ref": "business-query.request.schema.json#/$defs/entityType" },
+        "canonicalName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "distinguishingText": { "type": "string", "minLength": 1, "maxLength": 300 }
+      }
+    },
+    "resolvedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mentionId", "resolutionStatus", "resolved"],
+      "properties": {
+        "mentionId": { "$ref": "#/$defs/localId" },
+        "resolutionStatus": { "const": "RESOLVED" },
+        "mockData": { "type": "boolean" },
+        "resolved": { "$ref": "#/$defs/entity" }
+      }
+    },
+    "ambiguousResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mentionId", "resolutionStatus", "candidates"],
+      "properties": {
+        "mentionId": { "$ref": "#/$defs/localId" },
+        "resolutionStatus": { "const": "AMBIGUOUS" },
+        "mockData": { "type": "boolean" },
+        "candidates": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/candidate" }
+        }
+      }
+    },
+    "notFoundResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mentionId", "resolutionStatus", "candidates"],
+      "properties": {
+        "mentionId": { "$ref": "#/$defs/localId" },
+        "resolutionStatus": { "const": "NOT_FOUND" },
+        "mockData": { "type": "boolean" },
+        "searchedText": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "candidates": { "type": "array", "maxItems": 0 }
+      }
+    },
+    "errorResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mentionId", "resolutionStatus", "message"],
+      "properties": {
+        "mentionId": { "$ref": "#/$defs/localId" },
+        "resolutionStatus": { "const": "ERROR" },
+        "mockData": { "type": "boolean" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "resolutionResult": {
+      "oneOf": [
+        { "$ref": "#/$defs/resolvedResult" },
+        { "$ref": "#/$defs/ambiguousResult" },
+        { "$ref": "#/$defs/notFoundResult" },
+        { "$ref": "#/$defs/errorResult" }
+      ]
+    },
+    "errorCode": {
+      "enum": [
+        "INVALID_REQUEST",
+        "INVALID_PLAN_DEPENDENCY",
+        "INPUT_TYPE_MISMATCH",
+        "PLAN_LIMIT_EXCEEDED",
+        "RESOLUTION_UNAVAILABLE",
+        "INTERNAL_ERROR"
+      ]
+    }
+  }
+}

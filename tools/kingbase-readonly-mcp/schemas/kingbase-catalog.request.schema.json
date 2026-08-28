@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kingbase-catalog.request.schema.json",
+  "title": "测试环境 Kingbase 产业目录 MCP 请求",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "RESOLVE_CATALOG",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "text", "expectedEntityType", "limit"],
+      "properties": {
+        "operation": { "const": "RESOLVE_CATALOG" },
+        "text": { "$ref": "#/$defs/safeText" },
+        "expectedEntityType": { "enum": ["PRODUCT", "INDUSTRY", "ANY"] },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 10 }
+      }
+    },
+    {
+      "title": "SEARCH_PRODUCTS",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "searchText", "matchField", "limit"],
+      "properties": {
+        "operation": { "const": "SEARCH_PRODUCTS" },
+        "searchText": { "$ref": "#/$defs/safeText" },
+        "matchField": { "enum": ["ANY", "NAME", "CODE"] },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 20 }
+      }
+    },
+    {
+      "title": "PRODUCT_INDUSTRIES",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "productEntityId", "limit"],
+      "properties": {
+        "operation": { "const": "PRODUCT_INDUSTRIES" },
+        "productEntityId": { "$ref": "#/$defs/productEntityId" },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 50 }
+      }
+    },
+    {
+      "title": "INDUSTRY_CHILDREN",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "parentEntityId", "limit"],
+      "properties": {
+        "operation": { "const": "INDUSTRY_CHILDREN" },
+        "parentEntityId": { "$ref": "#/$defs/childrenParentEntityId" },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 50 }
+      }
+    },
+    {
+      "title": "INDUSTRY_PARENT_PATH",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "industryEntityId"],
+      "properties": {
+        "operation": { "const": "INDUSTRY_PARENT_PATH" },
+        "industryEntityId": { "$ref": "#/$defs/industryEntityId" }
+      }
+    }
+  ],
+  "$defs": {
+    "safeText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[^\\x00-\\x1F\\x7F-\\x9F]+$"
+    },
+    "productEntityId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^PRODUCT:[A-Za-z0-9._-]+$"
+    },
+    "rootEntityId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^INDUSTRY_ROOT:[A-Za-z0-9_-]+$"
+    },
+    "level1EntityId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^INDUSTRY_L1:[A-Za-z0-9._-]+$"
+    },
+    "level2EntityId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^INDUSTRY_L2:[A-Za-z0-9._-]+$"
+    },
+    "level3EntityId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^INDUSTRY_L3:[A-Za-z0-9._-]+$"
+    },
+    "childrenParentEntityId": {
+      "oneOf": [
+        { "$ref": "#/$defs/rootEntityId" },
+        { "$ref": "#/$defs/level1EntityId" },
+        { "$ref": "#/$defs/level2EntityId" }
+      ]
+    },
+    "industryEntityId": {
+      "oneOf": [
+        { "$ref": "#/$defs/rootEntityId" },
+        { "$ref": "#/$defs/level1EntityId" },
+        { "$ref": "#/$defs/level2EntityId" },
+        { "$ref": "#/$defs/level3EntityId" }
+      ]
+    }
+  }
+}
