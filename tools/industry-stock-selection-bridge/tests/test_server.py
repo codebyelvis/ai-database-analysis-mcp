@@ -76,6 +76,58 @@ class PublicServerTest(unittest.TestCase):
         ])
         self.assertEqual(bridge.calls, [])
 
+    def test_tools_list_accepts_codex_request_metadata(self):
+        status, lines, bridge = run_protocol(
+            [
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/list",
+                    "params": {"_meta": {"progressToken": 0}},
+                }
+            ]
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            [tool["name"] for tool in lines[0]["result"]["tools"]],
+            ["entity_resolve", "business_query"],
+        )
+        self.assertEqual(bridge.calls, [])
+
+    def test_request_metadata_is_transport_only_for_other_methods(self):
+        metadata = {"_meta": {"progressToken": 1, "threadId": "thread-1"}}
+        status, lines, bridge = run_protocol(
+            [
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": PROTOCOL_VERSION,
+                        "capabilities": {},
+                        "clientInfo": {},
+                        **metadata,
+                    },
+                },
+                {"jsonrpc": "2.0", "id": 2, "method": "ping", "params": metadata},
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "entity_resolve",
+                        "arguments": {"x": 1},
+                        **metadata,
+                    },
+                },
+            ]
+        )
+        self.assertEqual(status, 0)
+        self.assertNotIn("error", lines[0])
+        self.assertEqual(lines[1]["result"], {})
+        self.assertNotIn("error", lines[2])
+        self.assertEqual(bridge.calls, [("entity_resolve", {"x": 1})])
+
     def test_exact_initialize_list_and_two_tool_calls(self):
         status, lines, bridge = run_protocol(
             [

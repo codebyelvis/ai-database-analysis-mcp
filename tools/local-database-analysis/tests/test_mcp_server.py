@@ -91,6 +91,45 @@ class McpServerTest(unittest.TestCase):
         self.assertNotIn("error", response)
         self.assertEqual(len(response["result"]["tools"]), 6)
 
+    def test_tools_list_accepts_codex_request_metadata(self):
+        completed = self.process_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/list",
+                "params": {"_meta": {"progressToken": 0}},
+            }
+        )
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(completed.stderr, "")
+        response = json.loads(completed.stdout)
+        self.assertNotIn("error", response)
+        self.assertEqual(len(response["result"]["tools"]), 6)
+
+    def test_request_metadata_is_transport_only_for_other_methods(self):
+        metadata = {"_meta": {"progressToken": 1, "threadId": "thread-1"}}
+        initialized = self.request(
+            "initialize",
+            {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {"name": "codex", "version": "1"},
+                **metadata,
+            },
+        )
+        pinged = self.request("ping", metadata)
+        called = self.request(
+            "tools/call",
+            {
+                "name": "canonicalize",
+                "arguments": {"value": {"b": 2, "a": 1}},
+                **metadata,
+            },
+        )
+        self.assertNotIn("error", initialized)
+        self.assertEqual(pinged["result"], {})
+        self.assertEqual(called["result"]["content"][0]["text"], '{"a":1,"b":2}')
+
     def test_tool_schemas_are_closed_objects(self):
         response = self.request("tools/list", {})
 

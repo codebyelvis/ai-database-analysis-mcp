@@ -195,11 +195,21 @@ def _tool_result(value: Any) -> dict[str, Any]:
     return result
 
 
+def _without_request_meta(params: Any) -> dict[str, Any] | None:
+    """Validate and remove common MCP request metadata before dispatch."""
+    if not isinstance(params, dict):
+        return None
+    if "_meta" in params and not isinstance(params["_meta"], dict):
+        return None
+    return {key: value for key, value in params.items() if key != "_meta"}
+
+
 def _dispatch(request: dict[str, Any], bridge: Any) -> dict[str, Any] | None:
     request_id, method, params = _validate_base(request)
     if method in {"notifications/initialized", "notifications/cancelled"}:
         return None
     if method == "initialize":
+        params = _without_request_meta(params)
         if not (
             isinstance(params, dict)
             and set(params) == {"protocolVersion", "capabilities", "clientInfo"}
@@ -217,17 +227,20 @@ def _dispatch(request: dict[str, Any], bridge: Any) -> dict[str, Any] | None:
             },
         )
     if method == "ping":
+        params = _without_request_meta(params)
         if params != {}:
             raise _ProtocolError("invalid_params")
         return _success_response(request_id, {})
     if method == "tools/list":
         if params is None:
             params = {}
+        params = _without_request_meta(params)
         if params != {}:
             raise _ProtocolError("invalid_params")
         return _success_response(request_id, {"tools": tool_definitions()})
     if method != "tools/call":
         raise _ProtocolError("method_not_found")
+    params = _without_request_meta(params)
     if not (
         isinstance(params, dict)
         and set(params) <= {"name", "arguments"}

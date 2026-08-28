@@ -21,6 +21,7 @@ PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "ai-database-analysis-local"
 SERVER_VERSION = "0.1.0"
 MAX_JSON_LINE_CHARS = 1_048_576
+MAX_JSON_DEPTH = 64
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -566,11 +567,35 @@ def _safe_request_id(value: object) -> object:
     return None
 
 
+def _json_depth_exceeds(value: object, maximum: int = MAX_JSON_DEPTH) -> bool:
+    """迭代检查 JSON 容器深度，避免依赖解释器递归阈值。"""
+    pending = [(value, 0)]
+    while pending:
+        current, depth = pending.pop()
+        if not isinstance(current, (dict, list)):
+            continue
+        depth += 1
+        if depth > maximum:
+            return True
+        children = current.values() if isinstance(current, dict) else current
+        pending.extend((child, depth) for child in children)
+    return False
+
+
 def _invalid_params(is_notification: bool, request_id: object) -> dict | None:
     """为非法 params 生成 JSON-RPC 错误；通知仍不返回响应。"""
     if is_notification:
         return None
     return _error_response(request_id, -32602, "invalid_params")
+
+
+def _without_request_meta(params: object) -> dict | None:
+    """验证并移除 MCP 公共请求元数据，避免其进入业务参数。"""
+    if not isinstance(params, dict):
+        return None
+    if "_meta" in params and not isinstance(params["_meta"], dict):
+        return None
+    return {key: value for key, value in params.items() if key != "_meta"}
 
 
 def _valid_initialize_params(params: dict) -> bool:
@@ -599,8 +624,8 @@ def dispatch(request: object) -> dict | None:
     if method in {"notifications/initialized", "notifications/cancelled"}:
         return None
     if method == "initialize":
-        params = request.get("params", {})
-        if not isinstance(params, dict) or not _valid_initialize_params(params):
+        params = _without_request_meta(request.get("params", {}))
+        if params is None or not _valid_initialize_params(params):
             return _invalid_params(is_notification, request_id)
         if is_notification:
             return None
@@ -613,15 +638,16 @@ def dispatch(request: object) -> dict | None:
             },
         )
     if method == "ping":
-        params = request.get("params", {})
-        if not isinstance(params, dict) or params:
+        params = _without_request_meta(request.get("params", {}))
+        if params is None or params:
             return _invalid_params(is_notification, request_id)
         return None if is_notification else _response(request_id, {})
     if method == "tools/list":
         params = request.get("params")
         if params is None:
             params = {}
-        if not isinstance(params, dict):
+        params = _without_request_meta(params)
+        if params is None:
             return _invalid_params(is_notification, request_id)
         if set(params) - {"cursor"} or (
             "cursor" in params and not isinstance(params["cursor"], str)
@@ -629,8 +655,8 @@ def dispatch(request: object) -> dict | None:
             return _invalid_params(is_notification, request_id)
         return None if is_notification else _response(request_id, {"tools": _tool_definitions()})
     if method == "tools/call":
-        params = request.get("params")
-        if not isinstance(params, dict):
+        params = _without_request_meta(request.get("params"))
+        if params is None:
             return _invalid_params(is_notification, request_id)
         if set(params) - {"name", "arguments"} or "name" not in params:
             return _invalid_params(is_notification, request_id)
@@ -653,6 +679,8 @@ def serve(input_stream: TextIO, output_stream: TextIO) -> None:
             if len(line) > MAX_JSON_LINE_CHARS:
                 raise ValueError("input line too large")
             request = json.loads(line)
+            if _json_depth_exceeds(request):
+                raise ValueError("input nesting too deep")
         except (json.JSONDecodeError, RecursionError, TypeError, UnicodeError, ValueError):
             response = _error_response(None, -32700, "parse_error")
         else:
