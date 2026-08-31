@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import Ajv2020 from "../../kingbase-readonly-mcp/node_modules/ajv/dist/2020.js";
 
+import { compileContracts } from "../schema_harness.mjs";
+
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONTRACT_ROOT = path.join(HERE, "..", "contracts");
@@ -49,7 +51,7 @@ const STEP = {
 
 
 test("all four public contracts compile and accept real projected envelopes", () => {
-  const compiled = validators();
+  const compiled = compileContracts(CONTRACT_ROOT);
   const resolvedPlan = { planId: "plan1", steps: [STEP] };
   const entityResponse = {
     success: true,
@@ -105,9 +107,31 @@ test("all four public contracts compile and accept real projected envelopes", ()
       },
     ],
   };
-  assert.equal(compiled["entity-resolve.response.schema.json"](entityResponse), true);
-  assert.equal(compiled["business-query.request.schema.json"]({ operation: "business_query", resolvedPlan }), true);
-  assert.equal(compiled["business-query.response.schema.json"](businessResponse), true);
+  const entityRequest = {
+    operation: "entity_resolve",
+    mentions: [
+      { mentionId: "m1", text: "产品一", expectedEntityTypes: ["CATALOG_NODE"] },
+    ],
+    queryPlan: {
+      planId: "plan1",
+      steps: [
+        {
+          stepId: "s1",
+          relation: "PARENT_PATH",
+          input: { sourceType: "MENTION", mentionId: "m1" },
+          outputType: "PATH_RESULT",
+          presentation: { visibility: "VISIBLE" },
+        },
+      ],
+    },
+  };
+  assert.equal(compiled.entityResolveRequest(entityRequest), true);
+  assert.equal(compiled.entityResolveResponse(entityResponse), true);
+  assert.equal(compiled.businessQueryRequest({ operation: "business_query", resolvedPlan }), true);
+  assert.equal(compiled.businessQueryResponse(businessResponse), true);
+  for (const validate of Object.values(compiled)) {
+    assert.equal(validate({ invalid: true }), false);
+  }
 });
 
 

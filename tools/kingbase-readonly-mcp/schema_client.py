@@ -27,7 +27,7 @@ class SchemaUnavailable(RuntimeError):
 
 
 class _ProcessTransport:
-    def __init__(self, node_binary: str) -> None:
+    def __init__(self, node_binary: str, worker_path: str | os.PathLike[str] | None = None) -> None:
         if (
             not isinstance(node_binary, str)
             or not os.path.isabs(node_binary)
@@ -36,24 +36,43 @@ class _ProcessTransport:
             or not os.access(node_binary, os.X_OK)
         ):
             raise ValueError("invalid node binary")
-        worker = Path(__file__).with_name("schema_worker.mjs")
-        self._process = subprocess.Popen(
-            [node_binary, str(worker)],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            env={},
-            bufsize=0,
+        worker = (
+            Path(__file__).with_name("schema_worker.mjs")
+            if worker_path is None
+            else Path(worker_path)
         )
-        if self._process.stdin is None or self._process.stdout is None:
-            self.terminate()
-            raise RuntimeError("worker pipes unavailable")
-        self._stdin = self._process.stdin
-        self._stdout = self._process.stdout
+        resolved_worker = Path(os.path.realpath(worker))
+        if (
+            not worker.is_absolute()
+            or worker.is_symlink()
+            or not worker.is_file()
+            or resolved_worker != worker
+        ):
+            raise ValueError("invalid schema worker")
         self._buffer = bytearray()
-        self._selector = selectors.DefaultSelector()
-        self._selector.register(self._stdout, selectors.EVENT_READ)
+        self._process = None
+        self._stdin = None
+        self._stdout = None
+        self._selector = None
         self._closed = False
+        try:
+            self._process = subprocess.Popen(
+                [node_binary, str(worker)],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                env={},
+                bufsize=0,
+            )
+            if self._process.stdin is None or self._process.stdout is None:
+                raise RuntimeError("worker pipes unavailable")
+            self._stdin = self._process.stdin
+            self._stdout = self._process.stdout
+            self._selector = selectors.DefaultSelector()
+            self._selector.register(self._stdout, selectors.EVENT_READ)
+        except Exception:
+            self.terminate()
+            raise
 
     def write_line(self, payload: bytes) -> None:
         encoded = payload + b"\n"
@@ -110,18 +129,47 @@ class SchemaClient:
         self,
         node_binary: str | None = None,
         transport_factory: Callable[[], Any] | None = None,
+        *,
+        worker_path: str | os.PathLike[str] | None = None,
+        contracts: set[str] | frozenset[str] | None = None,
+        startup_probe: tuple[str, Any] | None = None,
     ) -> None:
         self._transport = None
         self._closed = False
         self._next_id = 0
         try:
+            selected_contracts = CONTRACTS if contracts is None else frozenset(contracts)
+            if not selected_contracts or any(
+                not isinstance(contract, str) or not contract
+                for contract in selected_contracts
+            ):
+                raise ValueError("invalid contract allowlist")
+            self._contracts = frozenset(selected_contracts)
+            selected_probe = (
+                ("preflightRequest", {})
+                if startup_probe is None
+                else startup_probe
+            )
+            if (
+                not isinstance(selected_probe, tuple)
+                or len(selected_probe) != 2
+                or not isinstance(selected_probe[0], str)
+                or selected_probe[0] not in self._contracts
+            ):
+                raise ValueError("invalid startup probe")
             if transport_factory is None:
                 resolved = self._resolve_node_binary(node_binary)
-                transport_factory = lambda: _ProcessTransport(resolved)
+                if worker_path is None:
+                    transport_factory = lambda: _ProcessTransport(resolved)
+                else:
+                    transport_factory = lambda: _ProcessTransport(
+                        resolved,
+                        worker_path=worker_path,
+                    )
             self._transport = transport_factory()
             if not self._exchange(
-                "preflightRequest",
-                {},
+                selected_probe[0],
+                selected_probe[1],
                 WORKER_STARTUP_TIMEOUT_SECONDS,
             ):
                 raise ValueError("worker bootstrap validation failed")
@@ -158,7 +206,7 @@ class SchemaClient:
         instance: Any,
         timeout_seconds: float,
     ) -> bool:
-        if contract not in CONTRACTS:
+        if contract not in self._contracts:
             raise ValueError("unknown contract")
         request_id = self._next_id
         request = {

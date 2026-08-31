@@ -13,6 +13,11 @@ and never exposes generic SQL. The bridge supports only catalog `CHILDREN` and
 product/industry `PARENT_PATH`. Company, ranking, finance, upstream/downstream
 and other uncovered relations fail closed without starting a database call.
 
+Every public `tools/call` request and projected response is validated at runtime
+against the same four JSON Schemas advertised by the tools. The launcher pins
+the physical Node 20 executable and the existing Ajv 8.20.0 installation; it
+never resolves the Schema runtime from caller `PATH`.
+
 Run the offline suite:
 
 ```sh

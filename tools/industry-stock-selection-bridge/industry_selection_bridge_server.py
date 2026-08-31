@@ -3,13 +3,38 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 import math
+import os
+import signal
 import sys
 from pathlib import Path
 from typing import Any, BinaryIO
 
 from industry_selection_bridge import IndustrySelectionBridge
+
+
+def _load_shared_schema_client() -> Any:
+    module_path = (
+        Path(__file__).resolve().parents[1]
+        / "kingbase-readonly-mcp"
+        / "schema_client.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "_industry_selection_shared_schema_client",
+        module_path,
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("shared schema client unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_SHARED_SCHEMA_CLIENT = _load_shared_schema_client()
+SchemaClient = _SHARED_SCHEMA_CLIENT.SchemaClient
+SchemaUnavailable = _SHARED_SCHEMA_CLIENT.SchemaUnavailable
 
 
 PROTOCOL_VERSION = "2024-11-05"
@@ -19,6 +44,28 @@ MAX_JSON_LINE_BYTES = 1_048_576
 MAX_JSON_DEPTH = 64
 TOOL_ANNOTATIONS = {"readOnlyHint": True, "destructiveHint": False}
 CONTRACT_ROOT = Path(__file__).with_name("contracts")
+SCHEMA_WORKER = Path(__file__).with_name("schema_worker.mjs")
+PUBLIC_SCHEMA_CONTRACTS = frozenset(
+    {
+        "entityResolveRequest",
+        "entityResolveResponse",
+        "businessQueryRequest",
+        "businessQueryResponse",
+    }
+)
+SCHEMA_STARTUP_PROBE = (
+    "entityResolveResponse",
+    {
+        "success": False,
+        "operation": "entity_resolve",
+        "mockData": False,
+        "resolutionResults": [],
+        "resolvedPlan": None,
+        "errorCode": "INTERNAL_ERROR",
+        "message": "catalog resolution is unavailable",
+        "retryable": False,
+    },
+)
 _TOOL_CONTRACTS = (
     (
         "entity_resolve",
@@ -87,23 +134,19 @@ def _parse_float(value: str) -> float:
     return number
 
 
-def _assert_finite(value: Any) -> None:
-    if isinstance(value, float) and not math.isfinite(value):
-        raise ValueError("non-finite JSON number")
-    if isinstance(value, dict):
-        for child in value.values():
-            _assert_finite(child)
-    elif isinstance(value, list):
-        for child in value:
-            _assert_finite(child)
-
-
-def _json_depth(value: Any) -> int:
-    if isinstance(value, dict):
-        return 1 + max((_json_depth(child) for child in value.values()), default=0)
-    if isinstance(value, list):
-        return 1 + max((_json_depth(child) for child in value), default=0)
-    return 0
+def _assert_safe_json(value: Any) -> None:
+    pending = [(value, 0)]
+    while pending:
+        current, depth = pending.pop()
+        if isinstance(current, float) and not math.isfinite(current):
+            raise ValueError("non-finite JSON number")
+        if not isinstance(current, (dict, list)):
+            continue
+        child_depth = depth + 1
+        if child_depth > MAX_JSON_DEPTH:
+            raise ValueError("JSON depth exceeded")
+        children = current.values() if isinstance(current, dict) else current
+        pending.extend((child, child_depth) for child in children)
 
 
 def _write_line(output_stream: BinaryIO, value: dict[str, Any]) -> None:
@@ -143,10 +186,10 @@ def _parse_request(text: str) -> dict[str, Any]:
             parse_constant=_reject_constant,
             parse_float=_parse_float,
         )
-        _assert_finite(value)
-    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        _assert_safe_json(value)
+    except (RecursionError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise _ProtocolError("parse_error", parse=True) from exc
-    if not isinstance(value, dict) or _json_depth(value) > MAX_JSON_DEPTH:
+    if not isinstance(value, dict):
         raise _ProtocolError("parse_error", parse=True)
     return value
 
@@ -204,7 +247,16 @@ def _without_request_meta(params: Any) -> dict[str, Any] | None:
     return {key: value for key, value in params.items() if key != "_meta"}
 
 
-def _dispatch(request: dict[str, Any], bridge: Any) -> dict[str, Any] | None:
+def _schema_valid(schema_client: Any, contract: str, instance: Any) -> bool:
+    valid = schema_client.validate(contract, instance)
+    if not isinstance(valid, bool):
+        raise RuntimeError("invalid schema result")
+    return valid
+
+
+def _dispatch(
+    request: dict[str, Any], bridge: Any, schema_client: Any
+) -> dict[str, Any] | None:
     request_id, method, params = _validate_base(request)
     if method in {"notifications/initialized", "notifications/cancelled"}:
         return None
@@ -251,15 +303,40 @@ def _dispatch(request: dict[str, Any], bridge: Any) -> dict[str, Any] | None:
     name = params["name"]
     arguments = params.get("arguments", {})
     if name == "entity_resolve":
-        value = bridge.entity_resolve(arguments)
+        request_contract = "entityResolveRequest"
+        response_contract = "entityResolveResponse"
     elif name == "business_query":
-        value = bridge.business_query(arguments)
+        request_contract = "businessQueryRequest"
+        response_contract = "businessQueryResponse"
     else:
         raise _ProtocolError("invalid_params")
+    if not _schema_valid(schema_client, request_contract, arguments):
+        raise _ProtocolError("invalid_params")
+    if name == "entity_resolve":
+        value = bridge.entity_resolve(arguments)
+    else:
+        value = bridge.business_query(arguments)
+    if not _schema_valid(schema_client, response_contract, value):
+        raise RuntimeError("invalid bridge result")
     return _success_response(request_id, _tool_result(value))
 
 
-def serve(input_stream: BinaryIO, output_stream: BinaryIO, *, bridge: Any) -> int:
+def _close_resource(resource: Any) -> None:
+    close = getattr(resource, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            pass
+
+
+def serve(
+    input_stream: BinaryIO,
+    output_stream: BinaryIO,
+    *,
+    bridge: Any,
+    schema_client: Any,
+) -> int:
     try:
         while True:
             try:
@@ -287,7 +364,7 @@ def serve(input_stream: BinaryIO, output_stream: BinaryIO, *, bridge: Any) -> in
             request_id: Any = None
             try:
                 request_id = _safe_id(request.get("id"))
-                response = _dispatch(request, bridge)
+                response = _dispatch(request, bridge, schema_client)
                 if response is not None:
                     _write_line(output_stream, response)
             except _ProtocolError as error:
@@ -301,27 +378,77 @@ def serve(input_stream: BinaryIO, output_stream: BinaryIO, *, bridge: Any) -> in
                 except Exception:
                     return 1
     finally:
-        close = getattr(bridge, "close", None)
-        if callable(close):
-            try:
-                close()
-            except Exception:
-                pass
+        _close_resource(bridge)
+        _close_resource(schema_client)
 
 
 def create_bridge() -> IndustrySelectionBridge:
     return IndustrySelectionBridge()
 
 
-def main() -> int:
+def create_schema_client() -> SchemaClient:
+    node_binary = os.environ.get("INDUSTRY_SCHEMA_NODE_BINARY")
+    if not isinstance(node_binary, str) or not os.path.isabs(node_binary):
+        raise RuntimeError("verified node binary required")
+    return SchemaClient(
+        node_binary=node_binary,
+        worker_path=SCHEMA_WORKER,
+        contracts=PUBLIC_SCHEMA_CONTRACTS,
+        startup_probe=SCHEMA_STARTUP_PROBE,
+    )
+
+
+def _serve_with_signal_handlers(
+    input_stream: BinaryIO,
+    output_stream: BinaryIO,
+    *,
+    bridge: Any,
+    schema_client: Any,
+) -> int:
+    previous_handlers: list[tuple[int, Any]] = []
+    entered_serve = False
+
+    def stop(signum: int, _frame: Any) -> None:
+        raise SystemExit(128 + signum)
+
     try:
+        for signum in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+            previous_handlers.append((signum, signal.signal(signum, stop)))
+        entered_serve = True
+        return serve(
+            input_stream,
+            output_stream,
+            bridge=bridge,
+            schema_client=schema_client,
+        )
+    finally:
+        if not entered_serve:
+            _close_resource(bridge)
+            _close_resource(schema_client)
+        for signum, previous in reversed(previous_handlers):
+            try:
+                signal.signal(signum, previous)
+            except Exception:
+                pass
+
+
+def main() -> int:
+    schema_client = None
+    try:
+        schema_client = create_schema_client()
         bridge = create_bridge()
     except Exception:
+        _close_resource(schema_client)
         sys.stderr.write("INDUSTRY_SELECTION_BRIDGE_FAILED\n")
         sys.stderr.flush()
         return 1
     try:
-        return serve(sys.stdin.buffer, sys.stdout.buffer, bridge=bridge)
+        return _serve_with_signal_handlers(
+            sys.stdin.buffer,
+            sys.stdout.buffer,
+            bridge=bridge,
+            schema_client=schema_client,
+        )
     except Exception:
         sys.stderr.write("INDUSTRY_SELECTION_BRIDGE_FAILED\n")
         sys.stderr.flush()

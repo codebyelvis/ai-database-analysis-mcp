@@ -50,3 +50,36 @@ This is the user-authorized combined Sol/xhigh architecture and implementation
 closeout. Earlier independent Task 7/8 evidence remains historical support; this
 review additionally covers the public bridge, Skill contract synchronization,
 Codex registration, final offline gates, and the final bounded smoke.
+
+## 2026-08-29 contract-boundary repair addendum
+
+A later adversarial review found two implementation gaps without changing the
+approved architecture or database contract:
+
+- sufficiently deep JSON could escape deterministic protocol classification;
+- the public MCP advertised four JSON Schemas but did not execute them at both the
+  request and response boundaries.
+
+The repair replaces recursive JSON inspection with a bounded iterative walk in
+both servers, translates decoder recursion into the frozen parse error, and adds a
+public Ajv worker through the existing pinned Node/Ajv runtime. The public server
+now validates request -> bridge -> response, keeps notifications side-effect free,
+and closes schema/bridge/worker resources on startup, stream, and catchable-signal
+exit paths. Launcher tests also bind the actual package-lock Ajv entry and isolate
+each negative branch from unrelated import failures.
+
+Fresh repair evidence:
+
+- private offline runner: `KINGBASE_READONLY_OFFLINE_OK`;
+- public bridge runner: `INDUSTRY_SELECTION_BRIDGE_OFFLINE_OK`;
+- Slice regressions: `SLICE1_OK` and `SLICE2_OK`;
+- fresh independent implementation rereview: `IMPLEMENTATION_REREVIEW=PASS`;
+- final independent Sol/ultra review: `FINAL_WHOLE_CHANGE_REVIEW=PASS` after its
+  contract-mapping test-coverage finding was fixed and re-reviewed;
+- fresh Codex-A app-server status: public version `1.0.0`, exact public tool set
+  `entity_resolve,business_query`, separate diagnostic MCP retained, private MCP
+  absent.
+
+The repair used no database, Keychain, network, package manager, MCP registration,
+generic SQL, DML/DDL, retry, fallback, or second business chain. The prior bounded
+and sanitized B3 smoke remains valid; no database rerun was needed.

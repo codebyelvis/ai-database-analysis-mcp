@@ -394,6 +394,37 @@ class ProtocolContractTest(unittest.TestCase):
         self.assertEqual(adapter.calls, [])
         self.assertTrue(all("Traceback" not in line.decode("utf-8", "replace") for line in output.getvalue().splitlines()))
 
+    def test_1200_depth_notification_returns_parse_error_then_ping_without_adapter_call(self):
+        server = load_server()
+        adapter = FakeAdapter({"preflight": protocol_response()})
+        deep = (
+            b'{"jsonrpc":"2.0","method":"tools/call","params":'
+            b'{"name":"kingbase_readonly_preflight","arguments":{"deep":'
+            + b"[" * 1200
+            + b"0"
+            + b"]" * 1200
+            + b"}}}\n"
+        )
+        ping = b'{"jsonrpc":"2.0","id":2,"method":"ping","params":{}}\n'
+        output = io.BytesIO()
+
+        status = server.serve(io.BytesIO(deep + ping), output, adapter=adapter)
+        lines = [json.loads(line) for line in output.getvalue().splitlines()]
+
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            lines,
+            [
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "parse_error"},
+                },
+                {"jsonrpc": "2.0", "id": 2, "result": {}},
+            ],
+        )
+        self.assertEqual(adapter.calls, [])
+
     def test_adapter_result_is_canonical_and_failed_result_is_error(self):
         success = protocol_response(operation="RESOLVE_CATALOG")
         failed = protocol_response(False)

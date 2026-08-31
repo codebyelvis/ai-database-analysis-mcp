@@ -39,6 +39,25 @@ The final smoke used one preflight and five fixed catalog operations. Its tempor
 JSON output was deleted after the sanitized evidence update. No private MCP
 registration, generic SQL, retry, fallback, DML, or DDL was introduced.
 
+### 2026-08-29 repair outcome
+
+An adversarial post-closeout review identified a deep-JSON classification defect
+and missing runtime enforcement of the four public Schemas. The Direct Change plan
+`2026-08-29-fix-mcp-contract-boundaries.md` repaired both with strict TDD while
+preserving this plan's two-layer architecture, two-tool public surface, fixed
+database operation set, and prior sanitized smoke evidence.
+
+The repaired postimage passed both offline runners, both Slice regressions, a fresh
+independent implementation rereview, a final independent Sol/ultra whole-change
+review, and a fresh Codex-A app-server status probe.
+The public MCP loads as version `1.0.0` with exactly `entity_resolve` and
+`business_query`; the private MCP remains unregistered. No database rerun was
+required for this protocol/schema-only repair.
+
+The task sections below are the historical 2026-08-28 execution record; later
+repository state and repair evidence are governed by the outcomes above and the
+2026-08-29 Direct Change plan.
+
 ---
 
 ## Task 1: Freeze the baseline and repair the existing Skill fixture regression

@@ -51,24 +51,19 @@ def _reject_constant(_value: str) -> Any:
     raise ValueError("non-finite number")
 
 
-def _assert_finite(value: Any) -> None:
-    if isinstance(value, float) and not math.isfinite(value):
-        raise ValueError("non-finite number")
-    if isinstance(value, dict):
-        for child in value.values():
-            _assert_finite(child)
-    elif isinstance(value, list):
-        for child in value:
-            _assert_finite(child)
-
-
-def _json_depth(value: Any) -> int:
-    if not isinstance(value, (dict, list)):
-        return 0
-    if not value:
-        return 1
-    children = value.values() if isinstance(value, dict) else value
-    return 1 + max(_json_depth(child) for child in children)
+def _assert_safe_json(value: Any) -> None:
+    pending = [(value, 0)]
+    while pending:
+        current, depth = pending.pop()
+        if isinstance(current, float) and not math.isfinite(current):
+            raise ValueError("non-finite number")
+        if not isinstance(current, (dict, list)):
+            continue
+        child_depth = depth + 1
+        if child_depth > MAX_JSON_DEPTH:
+            raise ValueError("JSON depth exceeded")
+        children = current.values() if isinstance(current, dict) else current
+        pending.extend((child, child_depth) for child in children)
 
 
 def _safe_id(value: Any) -> Any:
@@ -151,10 +146,10 @@ def _decode_line(input_stream: BinaryIO) -> tuple[str | None, bool]:
 def _parse_request(text: str) -> dict[str, Any]:
     try:
         value = json.loads(text, parse_constant=_reject_constant)
-        _assert_finite(value)
-    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        _assert_safe_json(value)
+    except (RecursionError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise _ProtocolError("parse_error", parse=True) from exc
-    if not isinstance(value, dict) or _json_depth(value) > MAX_JSON_DEPTH:
+    if not isinstance(value, dict):
         raise _ProtocolError("parse_error", parse=True)
     return value
 
